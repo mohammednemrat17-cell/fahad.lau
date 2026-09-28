@@ -1,1 +1,2595 @@
+--// fahad_moen Style UI + JumpPower + Spectate + Click TP + Shift Lock + Full Exit
+--// + Multi-Language (AR/EN) + Keybinds + Auto-Save Settings + Teleport to Player
+--// + RESPONSIVE (All Devices) + TOP-RIGHT POSITION + ANIMATED COUNTDOWN
+if _G.FahadMoenLoaded then return end
+_G.FahadMoenLoaded = true
 
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+local COLORS = {
+    Background    = Color3.fromRGB(20, 20, 25),
+    Sidebar       = Color3.fromRGB(20, 20, 24),
+    IconBg        = Color3.fromRGB(32, 32, 38),
+    Red           = Color3.fromRGB(220, 60, 60),
+    RedLight      = Color3.fromRGB(255, 100, 100),
+    Text          = Color3.fromRGB(240, 240, 240),
+    TextDim       = Color3.fromRGB(150, 150, 150),
+    Green         = Color3.fromRGB(60, 200, 60),
+    Card          = Color3.fromRGB(28, 28, 34),
+    CardHover     = Color3.fromRGB(38, 38, 45),
+    BlueLine      = Color3.fromRGB(60, 100, 200),
+    ToggleOff     = Color3.fromRGB(45, 45, 52),
+    ToggleOn      = Color3.fromRGB(220, 60, 60),
+    ToggleKnob    = Color3.fromRGB(180, 180, 190),
+    Yellow        = Color3.fromRGB(255, 220, 60),
+    Cyan          = Color3.fromRGB(60, 220, 220),
+    Orange        = Color3.fromRGB(255, 140, 40),
+}
+
+--// ==================== 💾 SAVE SYSTEM ====================
+local SAVE_FILE = "FahadMoen_Settings.json"
+local SAVE_FOLDER = "FahadMoen"
+
+local KEY_NAME_TO_CODE = {
+    RightShift = Enum.KeyCode.RightShift, LeftShift = Enum.KeyCode.LeftShift,
+    RightAlt = Enum.KeyCode.RightAlt, LeftAlt = Enum.KeyCode.LeftAlt,
+    RightControl = Enum.KeyCode.RightControl, LeftControl = Enum.KeyCode.LeftControl,
+    CapsLock = Enum.KeyCode.CapsLock, Tab = Enum.KeyCode.Tab,
+    Q = Enum.KeyCode.Q, E = Enum.KeyCode.E, R = Enum.KeyCode.R,
+    T = Enum.KeyCode.T, F = Enum.KeyCode.F, G = Enum.KeyCode.G,
+    H = Enum.KeyCode.H, V = Enum.KeyCode.V, C = Enum.KeyCode.C,
+    X = Enum.KeyCode.X, Z = Enum.KeyCode.Z, B = Enum.KeyCode.B,
+    N = Enum.KeyCode.N, M = Enum.KeyCode.M, P = Enum.KeyCode.P,
+    J = Enum.KeyCode.J, K = Enum.KeyCode.K, L = Enum.KeyCode.L,
+    I = Enum.KeyCode.I,
+}
+
+local LANG = "ar"
+local flySpeed = 1
+local WALK_SPEED = 100
+local JUMP_POWER = 50
+local SHIFTLOCK_KEY = Enum.KeyCode.RightShift
+local SHIFTLOCK_KEY_NAME = "RightShift"
+
+local KEYBINDS = {
+    Fly          = {key = Enum.KeyCode.F, name = "F"},
+    ClickTP      = {key = Enum.KeyCode.T, name = "T"},
+    JumpPower    = {key = Enum.KeyCode.J, name = "J"},
+    ESP          = {key = Enum.KeyCode.E, name = "E"},
+    Speed        = {key = Enum.KeyCode.V, name = "V"},
+    InfiniteJump = {key = Enum.KeyCode.I, name = "I"},
+}
+
+local function getSavePath()
+    if writefile and isfolder and makefolder then
+        pcall(function()
+            if not isfolder(SAVE_FOLDER) then
+                makefolder(SAVE_FOLDER)
+            end
+        end)
+        return SAVE_FOLDER .. "/" .. SAVE_FILE
+    end
+    return nil
+end
+
+local function saveSettings()
+    local path = getSavePath()
+    if not path then return end
+    local data = {
+        LANG = LANG,
+        SHIFTLOCK_KEY_NAME = SHIFTLOCK_KEY_NAME,
+        WALK_SPEED = WALK_SPEED,
+        JUMP_POWER = JUMP_POWER,
+        flySpeed = flySpeed,
+        KEYBINDS = {},
+    }
+    for name, kb in pairs(KEYBINDS) do
+        data.KEYBINDS[name] = kb.name
+    end
+    local success, encoded = pcall(function() return HttpService:JSONEncode(data) end)
+    if success and encoded then
+        pcall(function() writefile(path, encoded) end)
+    end
+end
+
+local function loadSettings()
+    local path = getSavePath()
+    if not path then return end
+    if not (isfile and isfile(path)) then return end
+    local success, content = pcall(function() return readfile(path) end)
+    if not success or not content or content == "" then return end
+    local ok, data = pcall(function() return HttpService:JSONDecode(content) end)
+    if not ok or type(data) ~= "table" then return end
+    if data.LANG and (data.LANG == "ar" or data.LANG == "en") then LANG = data.LANG end
+    if data.SHIFTLOCK_KEY_NAME and KEY_NAME_TO_CODE[data.SHIFTLOCK_KEY_NAME] then
+        SHIFTLOCK_KEY_NAME = data.SHIFTLOCK_KEY_NAME
+        SHIFTLOCK_KEY = KEY_NAME_TO_CODE[data.SHIFTLOCK_KEY_NAME]
+    end
+    if data.WALK_SPEED and type(data.WALK_SPEED) == "number" then WALK_SPEED = data.WALK_SPEED end
+    if data.JUMP_POWER and type(data.JUMP_POWER) == "number" then JUMP_POWER = data.JUMP_POWER end
+    if data.flySpeed and type(data.flySpeed) == "number" then flySpeed = data.flySpeed end
+    if data.KEYBINDS then
+        for name, keyName in pairs(data.KEYBINDS) do
+            if KEYBINDS[name] and KEY_NAME_TO_CODE[keyName] then
+                KEYBINDS[name].key = KEY_NAME_TO_CODE[keyName]
+                KEYBINDS[name].name = keyName
+            end
+        end
+    end
+end
+
+pcall(loadSettings)
+
+task.spawn(function()
+    while true do
+        task.wait(5)
+        pcall(saveSettings)
+    end
+end)
+
+--// ==================== 🌐 LANGUAGE SYSTEM ====================
+local TRANSLATIONS = {
+    ar = {
+        title          = "fahad_moen | Brookhaven | 1.0v",
+        by             = "بواسطة : fahad_moen",
+        home           = "الرئيسية",
+        players        = "اللاعبين",
+        features       = "الميزات",
+        settings       = "الإعدادات",
+        language       = "اللغة",
+        arabic         = "العربية",
+        english        = "الإنجليزية",
+        playersList    = "👥 اللاعبين",
+        playersHint    = "اضغط على اسم لاعب لتنتقل عنده",
+        allPlayers     = "🌐 الكل",
+        friendsOnly    = "👥 الأصدقاء",
+        strangersOnly  = "❓ الغرباء",
+        featuresTitle  = "💀 الميزات",
+        settingsTitle  = "⚙ الإعدادات",
+        fly            = "طيران",
+        clickTP        = "نقل بالضغط",
+        shiftLock      = "قفل الاتجاه",
+        jumpPower      = "قوة القفز",
+        esp            = "رؤية اللاعبين",
+        speed          = "سرعة",
+        infiniteJump   = "قفز لا نهائي",
+        shiftKeyLabel  = "🔒 حرف قفل الاتجاه: ",
+        pickKey        = "🔑 اختر حرف",
+        spectateTitle  = "🎥 مراقبة لاعب",
+        spectateInput  = "اكتب اسم اللاعب أو اختر من القائمة...",
+        pickPlayer     = "🎯 اختر لاعب",
+        spectate       = "🎥 مراقبة",
+        stopSpectate   = "❌ إيقاف المراقبة",
+        jumpPowerLabel = "🦘 قوة القفز: ",
+        flySpeedLabel  = "سرعة الطيران: ",
+        walkSpeedLabel = "سرعة الجري:",
+        exitBtn        = "🚪 خروج كامل (لا يرجع)",
+        pickPlayerTitle= "🎯 اختر لاعب",
+        search         = "🔍 ابحث...",
+        noPlayers      = "❌ مفيش لاعبين",
+        notFound       = "❌ غير موجود",
+        spectating     = "✅ يراقب",
+        stopped        = "✅ تم الإيقاف",
+        exiting        = "👋 خروج...",
+        keybindTitle   = "⌨️ اختر حرف",
+        shiftKeyPickerTitle = "🔑 اختر حرف قفل الاتجاه",
+        loading        = "⏳ جاري التحميل...",
+        ready          = "✅ جاهز!",
+    },
+    en = {
+        title          = "fahad_moen | Brookhaven | 1.0v",
+        by             = "by : fahad_moen",
+        home           = "Home",
+        players        = "Players",
+        features       = "Features",
+        settings       = "Settings",
+        language       = "Language",
+        arabic         = "Arabic",
+        english        = "English",
+        playersList    = "👥 Players",
+        playersHint    = "Click a player name to teleport to them",
+        allPlayers     = "🌐 All",
+        friendsOnly    = "👥 Friends",
+        strangersOnly  = "❓ Strangers",
+        featuresTitle  = "💀 Features",
+        settingsTitle  = "⚙ Settings",
+        fly            = "Fly",
+        clickTP        = "Click TP",
+        shiftLock      = "Shift Lock",
+        jumpPower      = "Jump Power",
+        esp            = "ESP",
+        speed          = "Speed",
+        infiniteJump   = "Infinite Jump",
+        shiftKeyLabel  = "🔒 Shift Lock key: ",
+        pickKey        = "🔑 Pick Key",
+        spectateTitle  = "🎥 Spectate Player",
+        spectateInput  = "Type player name or pick from list...",
+        pickPlayer     = "🎯 Pick Player",
+        spectate       = "🎥 Spectate",
+        stopSpectate   = "❌ Stop Spectate",
+        jumpPowerLabel = "🦘 Jump Power: ",
+        flySpeedLabel  = "Fly Speed: ",
+        walkSpeedLabel = "Walk Speed:",
+        exitBtn        = "🚪 Full Exit (permanent)",
+        pickPlayerTitle= "🎯 Pick Player",
+        search         = "🔍 Search...",
+        noPlayers      = "❌ No players",
+        notFound       = "❌ Not Found",
+        spectating     = "✅ Spectating",
+        stopped        = "✅ Stopped",
+        exiting        = "👋 Exiting...",
+        keybindTitle   = "⌨️ Pick Key",
+        shiftKeyPickerTitle = "🔑 Pick Shift Lock Key",
+        loading        = "⏳ Loading...",
+        ready          = "✅ Ready!",
+    }
+}
+
+local T = TRANSLATIONS[LANG]
+
+local TEXT_UPDATERS = {}
+local function registerText(obj, key, prefix, suffix)
+    table.insert(TEXT_UPDATERS, {obj = obj, key = key, prefix = prefix or "", suffix = suffix or ""})
+end
+
+local function applyLanguage()
+    T = TRANSLATIONS[LANG]
+    for _, item in ipairs(TEXT_UPDATERS) do
+        if item.obj and item.obj.Parent then
+            item.obj.Text = item.prefix .. (T[item.key] or item.key) .. item.suffix
+        end
+    end
+end
+
+local function setLanguage(lang)
+    LANG = lang
+    applyLanguage()
+    pcall(saveSettings)
+end
+
+--// ==================== ⌨️ KEYBIND HELPERS ====================
+local TOGGLE_CALLBACKS = {}
+local KEYBIND_LABELS = {}
+
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    for name, data in pairs(KEYBINDS) do
+        if input.KeyCode == data.key then
+            if TOGGLE_CALLBACKS[name] then
+                TOGGLE_CALLBACKS[name]()
+            end
+            break
+        end
+    end
+end)
+
+local FLYING = false
+local isFlyToggledOn = false
+local useCFrameFly = false
+local bodyGyro, bodyVelocity, CFloop
+local CONTROL = {F = 0, B = 0, L = 0, R = 0, Q = 0, E = 0}
+
+local ESP_ENABLED = false
+local ESP_COLOR = Color3.fromRGB(255, 60, 60)
+local ESP_HIGHLIGHTS = {}
+
+local SPEED_ENABLED = false
+local DEFAULT_SPEED = 16
+local speedLoopRunning = false
+
+local JUMP_ENABLED = false
+local DEFAULT_JUMP = 50
+local jumpLoopRunning = false
+
+local INFINITE_JUMP_ENABLED = false
+local infiniteJumpConnection = nil
+
+local clickTPActive = false
+
+local SHIFTLOCK_ENABLED = false
+
+local FULL_EXIT = false
+
+local SPECTATED_PLAYER = nil
+local spectateConnection = nil
+local originalCameraSubject = nil
+
+local updateShiftLockToggle = function() end
+local refreshKeyPicker = function() end
+local updateSpectateInput = nil
+local keyPickerFrame, keyPickerOverlay
+
+local function makeDraggable(guiObject, dragHandle)
+    local dragging = false
+    local dragStart, startPos
+    dragHandle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = guiObject.Position
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            guiObject.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "FahadMoen"
+screenGui.Parent = player:WaitForChild("PlayerGui")
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true
+screenGui.DisplayOrder = 999
+
+--// ==================== 📐 RESPONSIVE HELPERS ====================
+local function getViewport()
+    local cam = workspace.CurrentCamera
+    if cam then return cam.ViewportSize end
+    return Vector2.new(1280, 720)
+end
+
+local function getResponsiveSize()
+    local vp = getViewport()
+    local maxW, maxH
+    if vp.X < 700 then
+        maxW = vp.X * 0.95
+        maxH = vp.Y * 0.80
+    elseif vp.X < 1100 then
+        maxW = math.min(620, vp.X * 0.85)
+        maxH = math.min(440, vp.Y * 0.82)
+    else
+        maxW = math.min(700, vp.X * 0.7)
+        maxH = math.min(460, vp.Y * 0.8)
+    end
+    return UDim2.new(0, math.floor(maxW), 0, math.floor(maxH))
+end
+
+local function getResponsivePosition()
+    local vp = getViewport()
+    local w = getResponsiveSize().X.Offset
+    if vp.X < 700 then
+        return UDim2.new(1, -w - 10, 0, 10)
+    else
+        return UDim2.new(1, -w - 15, 0, 15)
+    end
+end
+
+local isMobile = getViewport().X < 700
+
+--// ==================== ⏱️ COUNTDOWN ANIMATION (ينزل من فوق) ====================
+local function runCountdown(seconds, callback)
+    seconds = seconds or 10
+
+    local countdownGui = Instance.new("ScreenGui")
+    countdownGui.Name = "FahadMoenCountdown"
+    countdownGui.Parent = player:WaitForChild("PlayerGui")
+    countdownGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+    countdownGui.ResetOnSpawn = false
+    countdownGui.IgnoreGuiInset = true
+    countdownGui.DisplayOrder = 1000
+
+    -- الخلفية السوداء
+    local bg = Instance.new("Frame", countdownGui)
+    bg.Name = "Bg"
+    bg.Size = UDim2.new(1, 0, 1, 0)
+    bg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    bg.BackgroundTransparency = 1
+    bg.BorderSizePixel = 0
+    bg.ZIndex = 1
+
+    TweenService:Create(bg, TweenInfo.new(0.4), {BackgroundTransparency = 0.45}):Play()
+
+    -- الإطار الرئيسي (يبدأ من فوق الشاشة)
+    local mainFrame = Instance.new("Frame", countdownGui)
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.new(0, 340, 0, 160)
+    mainFrame.Position = UDim2.new(0.5, -170, 0, -200)  -- يبدأ فوق الشاشة
+    mainFrame.AnchorPoint = Vector2.new(0, 0)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    mainFrame.BackgroundTransparency = 0.05
+    mainFrame.BorderSizePixel = 0
+    mainFrame.ZIndex = 2
+    Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 16)
+
+    local mainStroke = Instance.new("UIStroke", mainFrame)
+    mainStroke.Thickness = 2
+    mainStroke.Color = Color3.fromRGB(220, 60, 60)
+    mainStroke.Transparency = 0
+
+    -- شعار صغير فوق
+    local iconLabel = Instance.new("TextLabel", mainFrame)
+    iconLabel.Size = UDim2.new(1, 0, 0, 30)
+    iconLabel.Position = UDim2.new(0, 0, 0, 8)
+    iconLabel.BackgroundTransparency = 1
+    iconLabel.Font = Enum.Font.GothamBold
+    iconLabel.Text = "🎯 fahad_moen"
+    iconLabel.TextColor3 = Color3.fromRGB(220, 60, 60)
+    iconLabel.TextSize = 16
+    iconLabel.ZIndex = 3
+
+    -- الرقم الكبير
+    local numberLabel = Instance.new("TextLabel", mainFrame)
+    numberLabel.Name = "Number"
+    numberLabel.Size = UDim2.new(1, 0, 0, 80)
+    numberLabel.Position = UDim2.new(0, 0, 0, 38)
+    numberLabel.BackgroundTransparency = 1
+    numberLabel.Font = Enum.Font.GothamBold
+    numberLabel.Text = tostring(seconds)
+    numberLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    numberLabel.TextSize = 64
+    numberLabel.ZIndex = 3
+
+    -- النص تحت
+    local subLabel = Instance.new("TextLabel", mainFrame)
+    subLabel.Name = "SubLabel"
+    subLabel.Size = UDim2.new(1, 0, 0, 25)
+    subLabel.Position = UDim2.new(0, 0, 1, -30)
+    subLabel.BackgroundTransparency = 1
+    subLabel.Font = Enum.Font.GothamBold
+    subLabel.Text = T.loading
+    subLabel.TextColor3 = Color3.fromRGB(220, 60, 60)
+    subLabel.TextSize = 14
+    subLabel.ZIndex = 3
+
+    -- شريط التقدم داخل الإطار
+    local progressBg = Instance.new("Frame", mainFrame)
+    progressBg.Name = "ProgressBg"
+    progressBg.Size = UDim2.new(0.9, 0, 0, 5)
+    progressBg.Position = UDim2.new(0.05, 0, 1, -10)
+    progressBg.BackgroundColor3 = Color3.fromRGB(40, 40, 48)
+    progressBg.BorderSizePixel = 0
+    progressBg.ZIndex = 3
+    Instance.new("UICorner", progressBg).CornerRadius = UDim.new(1, 0)
+
+    local progressBar = Instance.new("Frame", progressBg)
+    progressBar.Name = "Progress"
+    progressBar.Size = UDim2.new(0, 0, 1, 0)
+    progressBar.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+    progressBar.BorderSizePixel = 0
+    progressBar.ZIndex = 4
+    Instance.new("UICorner", progressBar).CornerRadius = UDim.new(1, 0)
+
+    -- النزول من فوق (أنيميشن دخول)
+    TweenService:Create(mainFrame, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Position = UDim2.new(0.5, -170, 0.5, -80)
+    }):Play()
+
+    -- الحلقة
+    for i = seconds, 0, -1 do
+        numberLabel.Text = tostring(i)
+
+        -- تأثير Pulse
+        numberLabel.TextSize = 64
+        TweenService:Create(numberLabel, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            TextSize = 86
+        }):Play()
+
+        -- اهتزاز بسيط للإطار
+        local shakeX = math.random(-3, 3)
+        local shakeY = math.random(-3, 3)
+        local currentPos = mainFrame.Position
+        mainFrame.Position = UDim2.new(currentPos.X.Scale, currentPos.X.Offset + shakeX, currentPos.Y.Scale, currentPos.Y.Offset + shakeY)
+        TweenService:Create(mainFrame, TweenInfo.new(0.15), {
+            Position = UDim2.new(0.5, -170, 0.5, -80)
+        }):Play()
+
+        -- تغيير اللون حسب الوقت
+        local currentColor
+        if i <= 3 then
+            currentColor = Color3.fromRGB(255, 40, 40)
+        elseif i <= 6 then
+            currentColor = Color3.fromRGB(255, 200, 60)
+        else
+            currentColor = Color3.fromRGB(60, 220, 60)
+        end
+
+        TweenService:Create(numberLabel, TweenInfo.new(0.2), {TextColor3 = currentColor}):Play()
+        TweenService:Create(mainStroke, TweenInfo.new(0.2), {Color = currentColor}):Play()
+        TweenService:Create(progressBar, TweenInfo.new(0.2), {BackgroundColor3 = currentColor}):Play()
+
+        -- شريط التقدم
+        local progress = (seconds - i + 1) / (seconds + 1)
+        TweenService:Create(progressBar, TweenInfo.new(0.9, Enum.EasingStyle.Linear), {
+            Size = UDim2.new(progress, 0, 1, 0)
+        }):Play()
+
+        task.wait(1)
+    end
+
+    -- عند الوصول لصفر
+    numberLabel.Text = "GO!"
+    numberLabel.TextColor3 = Color3.fromRGB(60, 220, 60)
+    mainStroke.Color = Color3.fromRGB(60, 220, 60)
+    subLabel.Text = T.ready
+    subLabel.TextColor3 = Color3.fromRGB(60, 220, 60)
+
+    TweenService:Create(numberLabel, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        TextSize = 96
+    }):Play()
+
+    task.wait(0.6)
+
+    -- الصعود للأعلى والاختفاء
+    TweenService:Create(mainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+        Position = UDim2.new(0.5, -170, 0, -200)
+    }):Play()
+    TweenService:Create(bg, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
+
+    task.wait(0.6)
+    countdownGui:Destroy()
+
+    if callback then callback() end
+end
+
+--// ==================== 🔒 SHIFT LOCK CIRCLE ====================
+local shiftCircle = Instance.new("Frame", screenGui)
+shiftCircle.Name = "ShiftLockCircle"
+shiftCircle.Size = UDim2.new(0, 12, 0, 12)
+shiftCircle.Position = UDim2.new(0.5, -6, 0.5, -6)
+shiftCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+shiftCircle.BackgroundTransparency = 0.15
+shiftCircle.BorderSizePixel = 0
+shiftCircle.Visible = false
+shiftCircle.ZIndex = 2147483647
+shiftCircle.Parent = screenGui
+
+Instance.new("UICorner", shiftCircle).CornerRadius = UDim.new(1, 0)
+
+local shiftCircleStroke = Instance.new("UIStroke", shiftCircle)
+shiftCircleStroke.Thickness = 3
+shiftCircleStroke.Color = Color3.fromRGB(255, 255, 255)
+shiftCircleStroke.Transparency = 0
+shiftCircleStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+local shiftDot = Instance.new("Frame", shiftCircle)
+shiftDot.Name = "CenterDot"
+shiftDot.Size = UDim2.new(0, 4, 0, 4)
+shiftDot.Position = UDim2.new(0.5, -2, 0.5, -2)
+shiftDot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+shiftDot.BorderSizePixel = 0
+shiftDot.ZIndex = 2147483647
+Instance.new("UICorner", shiftDot).CornerRadius = UDim.new(1, 0)
+
+--// ==================== MAIN HUB ====================
+local hubFrame = Instance.new("Frame")
+hubFrame.Name = "HubFrame"
+hubFrame.Parent = screenGui
+hubFrame.Size = getResponsiveSize()
+hubFrame.Position = getResponsivePosition()
+hubFrame.AnchorPoint = Vector2.new(0, 0)
+hubFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+hubFrame.BorderSizePixel = 0
+hubFrame.ClipsDescendants = true
+hubFrame.ZIndex = 50
+hubFrame.Visible = false  -- نخفيه لحد ما يخلص العد
+Instance.new("UICorner", hubFrame).CornerRadius = UDim.new(0, 10)
+local hubStroke = Instance.new("UIStroke", hubFrame)
+hubStroke.Thickness = 1
+hubStroke.Color = Color3.fromRGB(60, 60, 70)
+
+--// TITLE BAR
+local titleBar = Instance.new("Frame", hubFrame)
+titleBar.Size = UDim2.new(1, 0, 0, 40)
+titleBar.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+titleBar.BorderSizePixel = 0
+titleBar.ZIndex = 51
+Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 10)
+
+local titleText = Instance.new("TextLabel", titleBar)
+titleText.Size = UDim2.new(0.55, 0, 1, 0)
+titleText.Position = UDim2.new(0, 15, 0, 0)
+titleText.BackgroundTransparency = 1
+titleText.Font = Enum.Font.GothamBold
+titleText.Text = T.title
+titleText.TextColor3 = COLORS.Text
+titleText.TextSize = 15
+titleText.TextXAlignment = Enum.TextXAlignment.Left
+titleText.TextTruncate = Enum.TextTruncate.AtEnd
+titleText.ZIndex = 52
+registerText(titleText, "title")
+
+local titleSub = Instance.new("TextLabel", titleBar)
+titleSub.Size = UDim2.new(0.3, 0, 1, 0)
+titleSub.Position = UDim2.new(0.55, 0, 0, 0)
+titleSub.BackgroundTransparency = 1
+titleSub.Font = Enum.Font.Gotham
+titleSub.Text = T.by
+titleSub.TextColor3 = COLORS.TextDim
+titleSub.TextSize = 12
+titleSub.TextXAlignment = Enum.TextXAlignment.Left
+titleSub.TextTruncate = Enum.TextTruncate.AtEnd
+titleSub.ZIndex = 52
+registerText(titleSub, "by")
+
+local function makeTitleBtn(icon, xOffset, color)
+    local btn = Instance.new("TextButton", titleBar)
+    btn.Size = UDim2.new(0, 30, 0, 30)
+    btn.Position = UDim2.new(1, xOffset, 0.5, -15)
+    btn.BackgroundTransparency = 1
+    btn.Font = Enum.Font.GothamBold
+    btn.Text = icon
+    btn.TextColor3 = color or COLORS.Text
+    btn.TextSize = 20
+    btn.AutoButtonColor = false
+    btn.ZIndex = 53
+    return btn
+end
+
+local settingsBtn = makeTitleBtn("⚙", -105, COLORS.TextDim)
+local minimizeBtn = makeTitleBtn("—", -65, COLORS.TextDim)
+local closeBtn    = makeTitleBtn("X", -25, COLORS.Text)
+
+local function addHover(btn, normalColor, hoverColor)
+    btn.MouseEnter:Connect(function() btn.TextColor3 = hoverColor end)
+    btn.MouseLeave:Connect(function() btn.TextColor3 = normalColor end)
+end
+
+addHover(settingsBtn, COLORS.TextDim, COLORS.Red)
+addHover(minimizeBtn, COLORS.TextDim, Color3.fromRGB(255, 200, 60))
+addHover(closeBtn, COLORS.Text, COLORS.Red)
+
+--// SIDEBAR
+local sidebar = Instance.new("Frame", hubFrame)
+sidebar.Name = "Sidebar"
+sidebar.BackgroundColor3 = COLORS.Sidebar
+sidebar.BorderSizePixel = 0
+sidebar.ZIndex = 51
+
+if isMobile then
+    sidebar.Size = UDim2.new(1, 0, 0, 50)
+    sidebar.Position = UDim2.new(0, 0, 1, -50)
+else
+    sidebar.Size = UDim2.new(0, 60, 1, -40)
+    sidebar.Position = UDim2.new(0, 0, 0, 40)
+end
+
+local blueLine = Instance.new("Frame", sidebar)
+if isMobile then
+    blueLine.Size = UDim2.new(0.6, 0, 0, 3)
+    blueLine.Position = UDim2.new(0.2, 0, 0, 0)
+else
+    blueLine.Size = UDim2.new(0, 3, 0.6, 0)
+    blueLine.Position = UDim2.new(1, -3, 0.2, 0)
+end
+blueLine.BackgroundColor3 = COLORS.BlueLine
+blueLine.BorderSizePixel = 0
+blueLine.ZIndex = 52
+Instance.new("UICorner", blueLine).CornerRadius = UDim.new(1, 0)
+
+--// CONTENT
+local contentFrame = Instance.new("Frame", hubFrame)
+contentFrame.Name = "ContentFrame"
+contentFrame.BackgroundTransparency = 1
+contentFrame.ClipsDescendants = true
+contentFrame.ZIndex = 51
+
+if isMobile then
+    contentFrame.Size = UDim2.new(1, 0, 1, -90)
+    contentFrame.Position = UDim2.new(0, 0, 0, 40)
+else
+    contentFrame.Size = UDim2.new(1, -60, 1, -40)
+    contentFrame.Position = UDim2.new(0, 60, 0, 40)
+end
+
+local pages = {}
+
+local function createPage(name)
+    local page = Instance.new("ScrollingFrame", contentFrame)
+    page.Name = name .. "Page"
+    page.Size = UDim2.new(1, 0, 1, 0)
+    page.BackgroundTransparency = 1
+    page.BorderSizePixel = 0
+    page.ScrollBarThickness = 4
+    page.ScrollBarImageColor3 = COLORS.Red
+    page.CanvasSize = UDim2.new(0, 0, 0, 0)
+    page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    page.Visible = false
+    page.ZIndex = 52
+
+    local p = Instance.new("UIPadding", page)
+    p.PaddingTop = UDim.new(0, 15)
+    p.PaddingLeft = UDim.new(0, 20)
+    p.PaddingRight = UDim.new(0, 20)
+    p.PaddingBottom = UDim.new(0, 15)
+
+    local l = Instance.new("UIListLayout", page)
+    l.Padding = UDim.new(0, 10)
+    l.SortOrder = Enum.SortOrder.LayoutOrder
+
+    pages[name] = page
+    return page
+end
+
+local sidebarButtons = {}
+
+local function createSidebarIcon(icon, pageName, order)
+    local btn = Instance.new("TextButton", sidebar)
+    btn.BackgroundColor3 = COLORS.IconBg
+    btn.BorderSizePixel = 0
+    btn.Font = Enum.Font.GothamBold
+    btn.Text = icon
+    btn.TextColor3 = COLORS.Red
+    btn.TextSize = 22
+    btn.AutoButtonColor = false
+    btn.ZIndex = 52
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 12)
+
+    if isMobile then
+        btn.Size = UDim2.new(0, 44, 0, 44)
+        btn.Position = UDim2.new(0, 10 + (order - 1) * 52, 0.5, -22)
+    else
+        btn.Size = UDim2.new(0, 44, 0, 44)
+        btn.Position = UDim2.new(0.5, -22, 0, 10 + (order - 1) * 52)
+    end
+
+    local s = Instance.new("UIStroke", btn)
+    s.Name = "SidebarStroke"
+    s.Thickness = 1
+    s.Color = Color3.fromRGB(45, 45, 52)
+
+    btn:SetAttribute("PageName", pageName)
+
+    btn.MouseEnter:Connect(function()
+        if pages[pageName] and pages[pageName].Visible then return end
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(42, 42, 50)}):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        if pages[pageName] and pages[pageName].Visible then return end
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = COLORS.IconBg}):Play()
+    end)
+
+    table.insert(sidebarButtons, {button = btn, pageName = pageName})
+    return btn
+end
+
+local function showPage(pageName)
+    for name, page in pairs(pages) do
+        page.Visible = (name == pageName)
+    end
+    for _, item in ipairs(sidebarButtons) do
+        local btn = item.button
+        local stroke = btn:FindFirstChild("SidebarStroke")
+        if item.pageName == pageName then
+            btn.BackgroundColor3 = Color3.fromRGB(80, 30, 35)
+            btn.TextColor3 = Color3.fromRGB(255, 120, 120)
+            if stroke then
+                stroke.Color = COLORS.Red
+                stroke.Thickness = 2
+            end
+        else
+            btn.BackgroundColor3 = COLORS.IconBg
+            btn.TextColor3 = COLORS.Red
+            if stroke then
+                stroke.Color = Color3.fromRGB(45, 45, 52)
+                stroke.Thickness = 1
+            end
+        end
+    end
+end
+
+createPage("Home")
+createPage("Players")
+createPage("Features")
+createPage("Settings")
+
+createSidebarIcon("🎯", "Home", 1)
+createSidebarIcon("👥", "Players", 2)
+createSidebarIcon("💀", "Features", 3)
+createSidebarIcon("⚙", "Settings", 4)
+
+--// ==================== FLOATING BUTTON ====================
+local floatingBtn = Instance.new("TextButton", screenGui)
+floatingBtn.Name = "FloatingButton"
+floatingBtn.Size = UDim2.new(0, 50, 0, 50)
+floatingBtn.Position = UDim2.new(1, -70, 0, 70)
+floatingBtn.AnchorPoint = Vector2.new(0, 0)
+floatingBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
+floatingBtn.BorderSizePixel = 0
+floatingBtn.Font = Enum.Font.GothamBold
+floatingBtn.Text = "FM"
+floatingBtn.TextColor3 = COLORS.Red
+floatingBtn.TextSize = 16
+floatingBtn.AutoButtonColor = false
+floatingBtn.Active = true
+floatingBtn.Visible = false
+floatingBtn.ZIndex = 200
+Instance.new("UICorner", floatingBtn).CornerRadius = UDim.new(1, 0)
+
+local floatingStroke = Instance.new("UIStroke", floatingBtn)
+floatingStroke.Thickness = 2
+floatingStroke.Color = COLORS.Red
+
+local draggingFloating = false
+local dragStartFloating, startPosFloating
+local hasMoved = false
+
+floatingBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        draggingFloating = true
+        hasMoved = false
+        dragStartFloating = input.Position
+        startPosFloating = floatingBtn.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if draggingFloating and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStartFloating
+        if math.abs(delta.X) > 3 or math.abs(delta.Y) > 3 then hasMoved = true end
+        floatingBtn.Position = UDim2.new(startPosFloating.X.Scale, startPosFloating.X.Offset + delta.X, startPosFloating.Y.Scale, startPosFloating.Y.Offset + delta.Y)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        draggingFloating = false
+    end
+end)
+
+floatingBtn.MouseButton1Up:Connect(function()
+    if not hasMoved and not FULL_EXIT then
+        floatingBtn.Visible = false
+        hubFrame.Visible = true
+    end
+end)
+
+floatingBtn.MouseEnter:Connect(function()
+    TweenService:Create(floatingBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(80, 30, 35)}):Play()
+    floatingBtn.Text = "🎯"
+end)
+floatingBtn.MouseLeave:Connect(function()
+    TweenService:Create(floatingBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(20, 20, 24)}):Play()
+    floatingBtn.Text = "FM"
+end)
+
+--// ==================== KEYBIND PICKER ====================
+local kbPicker = Instance.new("Frame", screenGui)
+kbPicker.Name = "KeybindPicker"
+kbPicker.Size = UDim2.new(0, 300, 0, 420)
+kbPicker.Position = UDim2.new(0.5, -150, 0.5, -210)
+kbPicker.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+kbPicker.BorderSizePixel = 0
+kbPicker.Visible = false
+kbPicker.ZIndex = 700
+Instance.new("UICorner", kbPicker).CornerRadius = UDim.new(0, 10)
+local kbStroke = Instance.new("UIStroke", kbPicker)
+kbStroke.Thickness = 2
+kbStroke.Color = COLORS.Red
+
+local kbOverlay = Instance.new("TextButton", screenGui)
+kbOverlay.Name = "KbOverlay"
+kbOverlay.Size = UDim2.new(1, 0, 1, 0)
+kbOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+kbOverlay.BackgroundTransparency = 0.5
+kbOverlay.Text = ""
+kbOverlay.AutoButtonColor = false
+kbOverlay.Visible = false
+kbOverlay.ZIndex = 699
+
+local kbTitle = Instance.new("TextLabel", kbPicker)
+kbTitle.Size = UDim2.new(1, 0, 0, 40)
+kbTitle.BackgroundTransparency = 1
+kbTitle.Font = Enum.Font.GothamBold
+kbTitle.Text = T.keybindTitle
+kbTitle.TextColor3 = COLORS.Red
+kbTitle.TextSize = 16
+kbTitle.ZIndex = 701
+registerText(kbTitle, "keybindTitle")
+
+local kbClose = Instance.new("TextButton", kbPicker)
+kbClose.Size = UDim2.new(0, 26, 0, 26)
+kbClose.Position = UDim2.new(1, -32, 0, 7)
+kbClose.BackgroundColor3 = COLORS.Red
+kbClose.Font = Enum.Font.GothamBold
+kbClose.Text = "X"
+kbClose.TextColor3 = Color3.fromRGB(255,255,255)
+kbClose.TextSize = 14
+kbClose.AutoButtonColor = false
+kbClose.ZIndex = 702
+Instance.new("UICorner", kbClose).CornerRadius = UDim.new(1, 0)
+
+local kbScroll = Instance.new("ScrollingFrame", kbPicker)
+kbScroll.Size = UDim2.new(1, -20, 1, -60)
+kbScroll.Position = UDim2.new(0, 10, 0, 50)
+kbScroll.BackgroundTransparency = 1
+kbScroll.BorderSizePixel = 0
+kbScroll.ScrollBarThickness = 4
+kbScroll.ScrollBarImageColor3 = COLORS.Red
+kbScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+kbScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+kbScroll.ZIndex = 701
+
+local kbLayout = Instance.new("UIListLayout", kbScroll)
+kbLayout.Padding = UDim.new(0, 5)
+kbLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+local KEY_OPTIONS = {
+    {"F", Enum.KeyCode.F}, {"G", Enum.KeyCode.G}, {"H", Enum.KeyCode.H},
+    {"J", Enum.KeyCode.J}, {"K", Enum.KeyCode.K}, {"L", Enum.KeyCode.L},
+    {"Q", Enum.KeyCode.Q}, {"E", Enum.KeyCode.E}, {"R", Enum.KeyCode.R},
+    {"T", Enum.KeyCode.T}, {"V", Enum.KeyCode.V}, {"C", Enum.KeyCode.C},
+    {"X", Enum.KeyCode.X}, {"Z", Enum.KeyCode.Z}, {"B", Enum.KeyCode.B},
+    {"N", Enum.KeyCode.N}, {"M", Enum.KeyCode.M}, {"P", Enum.KeyCode.P},
+    {"I", Enum.KeyCode.I},
+    {"RightShift", Enum.KeyCode.RightShift},
+    {"LeftShift", Enum.KeyCode.LeftShift},
+    {"RightAlt", Enum.KeyCode.RightAlt},
+    {"LeftAlt", Enum.KeyCode.LeftAlt},
+    {"RightControl", Enum.KeyCode.RightControl},
+    {"LeftControl", Enum.KeyCode.LeftControl},
+    {"Tab", Enum.KeyCode.Tab},
+    {"CapsLock", Enum.KeyCode.CapsLock},
+}
+
+local function openKeybindPicker(featureName)
+    for _, c in ipairs(kbScroll:GetChildren()) do
+        if c:IsA("TextButton") then c:Destroy() end
+    end
+    for _, opt in ipairs(KEY_OPTIONS) do
+        local kname, kkey = opt[1], opt[2]
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1, -4, 0, 36)
+        btn.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
+        btn.Font = Enum.Font.GothamBold
+        btn.Text = kname
+        btn.TextColor3 = COLORS.Text
+        btn.TextSize = 14
+        btn.AutoButtonColor = false
+        btn.ZIndex = 702
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+        btn.Parent = kbScroll
+
+        if KEYBINDS[featureName] and KEYBINDS[featureName].key == kkey then
+            btn.BackgroundColor3 = COLORS.Red
+        end
+
+        btn.MouseButton1Click:Connect(function()
+            KEYBINDS[featureName].key = kkey
+            KEYBINDS[featureName].name = kname
+            if KEYBIND_LABELS[featureName] then
+                KEYBIND_LABELS[featureName](kname)
+            end
+            kbPicker.Visible = false
+            kbOverlay.Visible = false
+            pcall(saveSettings)
+        end)
+    end
+    kbPicker.Visible = true
+    kbOverlay.Visible = true
+end
+
+kbClose.MouseButton1Click:Connect(function()
+    kbPicker.Visible = false
+    kbOverlay.Visible = false
+end)
+kbOverlay.MouseButton1Click:Connect(function()
+    kbPicker.Visible = false
+    kbOverlay.Visible = false
+end)
+
+--// ==================== createToggleButton ====================
+local function createToggleButton(parent, icon, labelKey, featureName, callback)
+    local btn = Instance.new("TextButton", parent)
+    btn.Size = UDim2.new(1, 0, 0, 55)
+    btn.BackgroundColor3 = COLORS.Card
+    btn.BorderSizePixel = 0
+    btn.Font = Enum.Font.GothamBold
+    btn.Text = ""
+    btn.TextColor3 = COLORS.Text
+    btn.TextSize = 14
+    btn.AutoButtonColor = false
+    btn.ZIndex = 53
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
+    btn:SetAttribute("IsActive", false)
+
+    local nameLabel = Instance.new("TextLabel", btn)
+    nameLabel.Size = UDim2.new(0.45, 0, 1, 0)
+    nameLabel.Position = UDim2.new(0, 15, 0, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.Text = icon .. "  " .. T[labelKey]
+    nameLabel.TextColor3 = COLORS.Text
+    nameLabel.TextSize = 15
+    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    nameLabel.ZIndex = 54
+    registerText(nameLabel, labelKey, icon .. "  ")
+
+    local kbBtn = Instance.new("TextButton", btn)
+    kbBtn.Size = UDim2.new(0, 38, 0, 24)
+    kbBtn.Position = UDim2.new(1, -160, 0.5, -12)
+    kbBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    kbBtn.Font = Enum.Font.GothamBold
+    kbBtn.Text = KEYBINDS[featureName] and KEYBINDS[featureName].name or "?"
+    kbBtn.TextColor3 = COLORS.Yellow
+    kbBtn.TextSize = 12
+    kbBtn.AutoButtonColor = false
+    kbBtn.ZIndex = 55
+    Instance.new("UICorner", kbBtn).CornerRadius = UDim.new(0, 6)
+
+    kbBtn.MouseButton1Click:Connect(function()
+        openKeybindPicker(featureName)
+    end)
+
+    KEYBIND_LABELS[featureName] = function(newName)
+        kbBtn.Text = newName
+    end
+
+    local toggleBg = Instance.new("Frame", btn)
+    toggleBg.Size = UDim2.new(0, 54, 0, 28)
+    toggleBg.Position = UDim2.new(1, -70, 0.5, -14)
+    toggleBg.BackgroundColor3 = COLORS.ToggleOff
+    toggleBg.BorderSizePixel = 0
+    toggleBg.ZIndex = 54
+    Instance.new("UICorner", toggleBg).CornerRadius = UDim.new(1, 0)
+
+    local knob = Instance.new("Frame", toggleBg)
+    knob.Size = UDim2.new(0, 22, 0, 22)
+    knob.Position = UDim2.new(0, 3, 0.5, -11)
+    knob.BackgroundColor3 = COLORS.ToggleKnob
+    knob.BorderSizePixel = 0
+    knob.ZIndex = 55
+    Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+
+    btn.MouseEnter:Connect(function()
+        if btn:GetAttribute("IsActive") then return end
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = COLORS.CardHover}):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        if btn:GetAttribute("IsActive") then return end
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = COLORS.Card}):Play()
+    end)
+
+    local function updateToggle(isOn)
+        if isOn then
+            TweenService:Create(toggleBg, TweenInfo.new(0.2), {BackgroundColor3 = COLORS.ToggleOn}):Play()
+            TweenService:Create(knob, TweenInfo.new(0.2), {Position = UDim2.new(1, -25, 0.5, -11)}):Play()
+            btn:SetAttribute("IsActive", true)
+            btn.BackgroundColor3 = Color3.fromRGB(45, 25, 28)
+        else
+            TweenService:Create(toggleBg, TweenInfo.new(0.2), {BackgroundColor3 = COLORS.ToggleOff}):Play()
+            TweenService:Create(knob, TweenInfo.new(0.2), {Position = UDim2.new(0, 3, 0.5, -11)}):Play()
+            btn:SetAttribute("IsActive", false)
+            btn.BackgroundColor3 = COLORS.Card
+        end
+    end
+
+    btn.MouseButton1Click:Connect(function()
+        callback(updateToggle)
+    end)
+
+    TOGGLE_CALLBACKS[featureName] = function()
+        callback(updateToggle)
+    end
+
+    return btn, updateToggle
+end
+
+--// ==================== HOME PAGE ====================
+local homePage = pages["Home"]
+
+local langTitle = Instance.new("TextLabel", homePage)
+langTitle.Size = UDim2.new(1, 0, 0, 30)
+langTitle.BackgroundTransparency = 1
+langTitle.Font = Enum.Font.GothamBold
+langTitle.Text = T.language
+langTitle.TextColor3 = COLORS.Red
+langTitle.TextSize = 18
+langTitle.TextXAlignment = Enum.TextXAlignment.Right
+langTitle.ZIndex = 53
+registerText(langTitle, "language")
+
+local langCard = Instance.new("Frame", homePage)
+langCard.Size = UDim2.new(1, 0, 0, 50)
+langCard.BackgroundColor3 = COLORS.Card
+langCard.BorderSizePixel = 0
+langCard.ZIndex = 53
+Instance.new("UICorner", langCard).CornerRadius = UDim.new(0, 8)
+
+local langLabel = Instance.new("TextLabel", langCard)
+langLabel.Size = UDim2.new(0.5, 0, 1, 0)
+langLabel.Position = UDim2.new(0, 20, 0, 0)
+langLabel.BackgroundTransparency = 1
+langLabel.Font = Enum.Font.Gotham
+langLabel.Text = T.language
+langLabel.TextColor3 = COLORS.TextDim
+langLabel.TextSize = 14
+langLabel.TextXAlignment = Enum.TextXAlignment.Left
+langLabel.ZIndex = 54
+registerText(langLabel, "language")
+
+local langValue = Instance.new("TextButton", langCard)
+langValue.Size = UDim2.new(0.45, 0, 1, 0)
+langValue.Position = UDim2.new(0.5, 0, 0, 0)
+langValue.BackgroundTransparency = 1
+langValue.Font = Enum.Font.GothamBold
+langValue.Text = (LANG == "ar") and T.arabic or T.english
+langValue.TextColor3 = COLORS.Red
+langValue.TextSize = 16
+langValue.TextXAlignment = Enum.TextXAlignment.Right
+langValue.AutoButtonColor = false
+langValue.ZIndex = 54
+
+langValue.MouseButton1Click:Connect(function()
+    setLanguage(LANG == "ar" and "en" or "ar")
+    langValue.Text = (LANG == "ar") and T.arabic or T.english
+end)
+
+--// ==================== PLAYERS PAGE ====================
+local playersPage = pages["Players"]
+
+local playersTitle = Instance.new("TextLabel", playersPage)
+playersTitle.Size = UDim2.new(1, 0, 0, 30)
+playersTitle.BackgroundTransparency = 1
+playersTitle.Font = Enum.Font.GothamBold
+playersTitle.Text = T.playersList
+playersTitle.TextColor3 = COLORS.Red
+playersTitle.TextSize = 18
+playersTitle.TextXAlignment = Enum.TextXAlignment.Right
+playersTitle.ZIndex = 53
+registerText(playersTitle, "playersList")
+
+local playersHint = Instance.new("TextLabel", playersPage)
+playersHint.Size = UDim2.new(1, 0, 0, 20)
+playersHint.BackgroundTransparency = 1
+playersHint.Font = Enum.Font.Gotham
+playersHint.Text = T.playersHint
+playersHint.TextColor3 = COLORS.TextDim
+playersHint.TextSize = 12
+playersHint.TextXAlignment = Enum.TextXAlignment.Right
+playersHint.ZIndex = 53
+registerText(playersHint, "playersHint")
+
+local filterRow = Instance.new("Frame", playersPage)
+filterRow.Size = UDim2.new(1, 0, 0, 36)
+filterRow.BackgroundTransparency = 1
+filterRow.ZIndex = 53
+
+local filterAllBtn = Instance.new("TextButton", filterRow)
+filterAllBtn.Size = UDim2.new(0.33, -4, 1, 0)
+filterAllBtn.BackgroundColor3 = COLORS.Red
+filterAllBtn.Font = Enum.Font.GothamBold
+filterAllBtn.Text = T.allPlayers
+filterAllBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+filterAllBtn.TextSize = 13
+filterAllBtn.AutoButtonColor = false
+filterAllBtn.ZIndex = 54
+Instance.new("UICorner", filterAllBtn).CornerRadius = UDim.new(0, 8)
+registerText(filterAllBtn, "allPlayers")
+
+local filterFriendsBtn = Instance.new("TextButton", filterRow)
+filterFriendsBtn.Size = UDim2.new(0.33, -4, 1, 0)
+filterFriendsBtn.Position = UDim2.new(0.33, 2, 0, 0)
+filterFriendsBtn.BackgroundColor3 = COLORS.Card
+filterFriendsBtn.Font = Enum.Font.GothamBold
+filterFriendsBtn.Text = T.friendsOnly
+filterFriendsBtn.TextColor3 = COLORS.Text
+filterFriendsBtn.TextSize = 13
+filterFriendsBtn.AutoButtonColor = false
+filterFriendsBtn.ZIndex = 54
+Instance.new("UICorner", filterFriendsBtn).CornerRadius = UDim.new(0, 8)
+registerText(filterFriendsBtn, "friendsOnly")
+
+local filterStrangersBtn = Instance.new("TextButton", filterRow)
+filterStrangersBtn.Size = UDim2.new(0.33, -4, 1, 0)
+filterStrangersBtn.Position = UDim2.new(0.66, 4, 0, 0)
+filterStrangersBtn.BackgroundColor3 = COLORS.Card
+filterStrangersBtn.Font = Enum.Font.GothamBold
+filterStrangersBtn.Text = T.strangersOnly
+filterStrangersBtn.TextColor3 = COLORS.Text
+filterStrangersBtn.TextSize = 13
+filterStrangersBtn.AutoButtonColor = false
+filterStrangersBtn.ZIndex = 54
+Instance.new("UICorner", filterStrangersBtn).CornerRadius = UDim.new(0, 8)
+registerText(filterStrangersBtn, "strangersOnly")
+
+local tpListFrame = Instance.new("Frame", playersPage)
+tpListFrame.Size = UDim2.new(1, 0, 0, 300)
+tpListFrame.BackgroundColor3 = COLORS.Card
+tpListFrame.BorderSizePixel = 0
+tpListFrame.ZIndex = 53
+Instance.new("UICorner", tpListFrame).CornerRadius = UDim.new(0, 8)
+
+local tpScroll = Instance.new("ScrollingFrame", tpListFrame)
+tpScroll.Size = UDim2.new(1, -20, 1, -20)
+tpScroll.Position = UDim2.new(0, 10, 0, 10)
+tpScroll.BackgroundTransparency = 1
+tpScroll.BorderSizePixel = 0
+tpScroll.ScrollBarThickness = 4
+tpScroll.ScrollBarImageColor3 = COLORS.Red
+tpScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+tpScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+tpScroll.ZIndex = 54
+
+local tpListLayout = Instance.new("UIListLayout", tpScroll)
+tpListLayout.Padding = UDim.new(0, 5)
+tpListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+local currentFilter = "all"
+local lastSelectedButton = nil
+
+local function refreshPlayerList()
+    for _, child in ipairs(tpScroll:GetChildren()) do
+        if child:IsA("TextButton") then child:Destroy() end
+    end
+    lastSelectedButton = nil
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player then
+            local shouldShow = false
+            local isFriend = false
+            pcall(function() isFriend = plr:IsFriendsWith(player.UserId) end)
+
+            if currentFilter == "all" then
+                shouldShow = true
+            elseif currentFilter == "friends" then
+                shouldShow = isFriend
+            elseif currentFilter == "strangers" then
+                shouldShow = not isFriend
+            end
+
+            if shouldShow then
+                local btn = Instance.new("TextButton")
+                btn.Size = UDim2.new(1, -4, 0, 38)
+                btn.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
+                btn.Font = Enum.Font.Gotham
+                btn.Text = (isFriend and "👥 " or "❓ ") .. plr.Name
+                btn.TextColor3 = COLORS.Text
+                btn.TextSize = 13
+                btn.AutoButtonColor = false
+                btn.ZIndex = 55
+                Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+                btn.Parent = tpScroll
+
+                btn.MouseEnter:Connect(function()
+                    if lastSelectedButton ~= btn then
+                        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(45, 45, 55)}):Play()
+                    end
+                end)
+                btn.MouseLeave:Connect(function()
+                    if lastSelectedButton ~= btn then
+                        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(35, 35, 42)}):Play()
+                    end
+                end)
+
+                btn.MouseButton1Click:Connect(function()
+                    if lastSelectedButton and lastSelectedButton.Parent then
+                        lastSelectedButton.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
+                        lastSelectedButton.TextColor3 = COLORS.Text
+                    end
+                    btn.BackgroundColor3 = COLORS.Green
+                    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                    lastSelectedButton = btn
+
+                    if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and character then
+                        local targetPos = plr.Character.HumanoidRootPart.Position + Vector3.new(0, 3, 0)
+                        character:PivotTo(CFrame.new(targetPos))
+                    end
+
+                    if updateSpectateInput then
+                        updateSpectateInput(plr.Name)
+                    end
+                end)
+            end
+        end
+    end
+end
+
+filterAllBtn.MouseButton1Click:Connect(function()
+    currentFilter = "all"
+    filterAllBtn.BackgroundColor3 = COLORS.Red
+    filterAllBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    filterFriendsBtn.BackgroundColor3 = COLORS.Card
+    filterFriendsBtn.TextColor3 = COLORS.Text
+    filterStrangersBtn.BackgroundColor3 = COLORS.Card
+    filterStrangersBtn.TextColor3 = COLORS.Text
+    refreshPlayerList()
+end)
+
+filterFriendsBtn.MouseButton1Click:Connect(function()
+    currentFilter = "friends"
+    filterFriendsBtn.BackgroundColor3 = COLORS.Red
+    filterFriendsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    filterAllBtn.BackgroundColor3 = COLORS.Card
+    filterAllBtn.TextColor3 = COLORS.Text
+    filterStrangersBtn.BackgroundColor3 = COLORS.Card
+    filterStrangersBtn.TextColor3 = COLORS.Text
+    refreshPlayerList()
+end)
+
+filterStrangersBtn.MouseButton1Click:Connect(function()
+    currentFilter = "strangers"
+    filterStrangersBtn.BackgroundColor3 = COLORS.Red
+    filterStrangersBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    filterAllBtn.BackgroundColor3 = COLORS.Card
+    filterAllBtn.TextColor3 = COLORS.Text
+    filterFriendsBtn.BackgroundColor3 = COLORS.Card
+    filterFriendsBtn.TextColor3 = COLORS.Text
+    refreshPlayerList()
+end)
+
+refreshPlayerList()
+Players.PlayerAdded:Connect(refreshPlayerList)
+Players.PlayerRemoving:Connect(refreshPlayerList)
+
+local walkFlingInfo = Instance.new("TextLabel", homePage)
+walkFlingInfo.Size = UDim2.new(1, -20, 0, 195)
+walkFlingInfo.BackgroundTransparency = 1
+walkFlingInfo.Font = Enum.Font.GothamBold
+walkFlingInfo.Text = [[
+WALKFLING
+
+للي بدو يطير ناس في كنباي:
+اكتب في الأدمن المجاني: WALKFLING
+
+وللي بدو يطفيه:
+اكتب: UNWALKFLING
+
+شوفو على يمين تحت أدمن مجاني|يوجد شات تحت سكربت 
+]]
+walkFlingInfo.TextColor3 = COLORS.Text
+walkFlingInfo.TextSize = 20
+walkFlingInfo.TextWrapped = true
+walkFlingInfo.TextXAlignment = Enum.TextXAlignment.Center
+walkFlingInfo.TextYAlignment = Enum.TextYAlignment.Center
+walkFlingInfo.ZIndex = 54
+
+--// ==================== FEATURES PAGE ====================
+local featuresPage = pages["Features"]
+
+local featuresTitle = Instance.new("TextLabel", featuresPage)
+featuresTitle.Size = UDim2.new(1, 0, 0, 30)
+featuresTitle.BackgroundTransparency = 1
+featuresTitle.Font = Enum.Font.GothamBold
+featuresTitle.Text = T.featuresTitle
+featuresTitle.TextColor3 = COLORS.Red
+featuresTitle.TextSize = 18
+featuresTitle.TextXAlignment = Enum.TextXAlignment.Right
+featuresTitle.ZIndex = 53
+registerText(featuresTitle, "featuresTitle")
+
+--// FLY
+local function startCFrameFlyLoop()
+    if not character or not character:FindFirstChild("Head") then return end
+    FLYING = true
+    local Head = character.Head
+    Head.Anchored = true
+    CFloop = RunService.Heartbeat:Connect(function(deltaTime)
+        local effectiveSpeed = flySpeed * 10
+        local moveDirection = humanoid.MoveDirection * (effectiveSpeed * deltaTime)
+        local headCFrame = Head.CFrame
+        local camera = workspace.CurrentCamera
+        local cameraCFrame = camera.CFrame
+        local cameraOffset = headCFrame:ToObjectSpace(cameraCFrame).Position
+        cameraCFrame = cameraCFrame * CFrame.new(-cameraOffset.X, -cameraOffset.Y, -cameraOffset.Z + 1)
+        local cameraPosition = cameraCFrame.Position
+        local headPosition = headCFrame.Position
+        local objectSpaceVelocity = CFrame.new(cameraPosition, Vector3.new(headPosition.X, cameraPosition.Y, headPosition.Z)):VectorToObjectSpace(moveDirection)
+        Head.CFrame = CFrame.new(headPosition) * (cameraCFrame - cameraPosition) * CFrame.new(objectSpaceVelocity)
+    end)
+end
+
+local function startBodyMoverFlyLoop()
+    if not character or not rootPart or not humanoid then return end
+    FLYING = true
+    task.spawn(function()
+        bodyGyro = Instance.new('BodyGyro', rootPart)
+        bodyGyro.P = 9e4
+        bodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+        bodyGyro.CFrame = rootPart.CFrame
+        bodyVelocity = Instance.new('BodyVelocity', rootPart)
+        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        bodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+        if humanoid then humanoid.PlatformStand = true end
+        repeat
+            task.wait()
+            local camera = workspace.CurrentCamera
+            local moveVector = ((camera.CFrame.LookVector * (CONTROL.F + CONTROL.B)) + ((camera.CFrame * CFrame.new((CONTROL.L + CONTROL.R), (CONTROL.Q + CONTROL.E) * 0.2, 0).p) - camera.CFrame.p))
+            bodyVelocity.Velocity = moveVector.Magnitude > 0 and moveVector.Unit * flySpeed or Vector3.new(0,0,0)
+            bodyGyro.CFrame = camera.CFrame
+        until not FLYING or not rootPart.Parent
+        if bodyGyro then bodyGyro:Destroy() end
+        if bodyVelocity then bodyVelocity:Destroy() end
+        if humanoid and humanoid.Parent then humanoid.PlatformStand = false end
+        CONTROL = {F=0,B=0,L=0,R=0,Q=0,E=0}
+    end)
+end
+
+local function setFlying(state)
+    isFlyToggledOn = state
+    if FLYING == state or not character or not character.Parent then return end
+    if state then
+        for _, part in ipairs(character:GetDescendants()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                part.Transparency = 0
+                part.LocalTransparencyModifier = 0
+            end
+        end
+        if useCFrameFly then startCFrameFlyLoop() else startBodyMoverFlyLoop() end
+    else
+        FLYING = false
+        if CFloop then CFloop:Disconnect(); CFloop = nil end
+        if character and character:FindFirstChild("Head") then character.Head.Anchored = false end
+    end
+end
+
+local flyBtn = createToggleButton(featuresPage, "✈️", "fly", "Fly", function(updateToggle)
+    setFlying(not isFlyToggledOn)
+    if isFlyToggledOn then updateToggle(true) else updateToggle(false) end
+end)
+
+--// CLICK TP
+local clickTPFeatureBtn = createToggleButton(featuresPage, "🖱️", "clickTP", "ClickTP", function(updateToggle)
+    clickTPActive = not clickTPActive
+    if clickTPActive then updateToggle(true) else updateToggle(false) end
+end)
+
+--// SHIFT LOCK
+local function enableShiftLock()
+    SHIFTLOCK_ENABLED = true
+    if humanoid then
+        humanoid.CameraOffset = Vector3.new(1.75, 0, 0)
+        humanoid.AutoRotate = false
+    end
+
+    pcall(function()
+        UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+        UserInputService.MouseIconEnabled = false
+    end)
+
+    shiftCircle.Visible = true
+
+    RunService:UnbindFromRenderStep("FahadMoenShiftLock")
+
+    RunService:BindToRenderStep("FahadMoenShiftLock", Enum.RenderPriority.Camera.Value - 1, function()
+        if not SHIFTLOCK_ENABLED then return end
+        if not character or not rootPart or not humanoid then return end
+
+        pcall(function()
+            UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+            UserInputService.MouseIconEnabled = false
+        end)
+
+        local camera = workspace.CurrentCamera
+        if not camera then return end
+
+        local cameraLook = camera.CFrame.LookVector
+        local flatLook = Vector3.new(cameraLook.X, 0, cameraLook.Z)
+
+        if flatLook.Magnitude > 0.01 then
+            flatLook = flatLook.Unit
+            local newCFrame = CFrame.lookAt(rootPart.Position, rootPart.Position + flatLook)
+            rootPart.CFrame = rootPart.CFrame:Lerp(newCFrame, 0.4)
+        end
+    end)
+end
+
+local function disableShiftLock()
+    SHIFTLOCK_ENABLED = false
+
+    RunService:UnbindFromRenderStep("FahadMoenShiftLock")
+
+    if humanoid then
+        humanoid.CameraOffset = Vector3.new(0, 0, 0)
+        humanoid.AutoRotate = true
+    end
+
+    pcall(function()
+        UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+        UserInputService.MouseIconEnabled = true
+    end)
+
+    shiftCircle.Visible = false
+end
+
+--// JUMP POWER
+local function applyJump()
+    if humanoid and humanoid.Parent and humanoid.Health > 0 then
+        humanoid.UseJumpPower = true
+        humanoid.JumpPower = JUMP_POWER
+    end
+end
+
+local function enableJump()
+    JUMP_ENABLED = true
+    applyJump()
+    if not jumpLoopRunning then
+        jumpLoopRunning = true
+        task.spawn(function()
+            while JUMP_ENABLED do
+                if humanoid and humanoid.Parent and humanoid.Health > 0 then
+                    if humanoid.JumpPower ~= JUMP_POWER or not humanoid.UseJumpPower then
+                        humanoid.UseJumpPower = true
+                        humanoid.JumpPower = JUMP_POWER
+                    end
+                end
+                task.wait(0.15)
+            end
+            jumpLoopRunning = false
+        end)
+    end
+end
+
+local function disableJump()
+    JUMP_ENABLED = false
+    if humanoid and humanoid.Parent then
+        humanoid.JumpPower = DEFAULT_JUMP
+    end
+end
+
+local jumpBtn = createToggleButton(featuresPage, "🦘", "jumpPower", "JumpPower", function(updateToggle)
+    if JUMP_ENABLED then
+        disableJump()
+        updateToggle(false)
+    else
+        enableJump()
+        updateToggle(true)
+    end
+end)
+
+--// ESP
+local function createHighlight(targetChar)
+    if not targetChar then return end
+    if ESP_HIGHLIGHTS[targetChar] then ESP_HIGHLIGHTS[targetChar]:Destroy(); ESP_HIGHLIGHTS[targetChar] = nil end
+    local h = Instance.new("Highlight")
+    h.Adornee = targetChar
+    h.FillColor = ESP_COLOR
+    h.FillTransparency = 0.4
+    h.OutlineColor = ESP_COLOR
+    h.OutlineTransparency = 0
+    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    h.Parent = targetChar
+    ESP_HIGHLIGHTS[targetChar] = h
+end
+
+local function applyESPToPlayer(plr)
+    if plr == player then return end
+    if plr.Character then createHighlight(plr.Character) end
+    plr.CharacterAdded:Connect(function(newChar)
+        if ESP_ENABLED then newChar:WaitForChild("Humanoid", 5); task.wait(0.5); createHighlight(newChar) end
+    end)
+end
+
+local function enableESP()
+    ESP_ENABLED = true
+    for _, plr in ipairs(Players:GetPlayers()) do applyESPToPlayer(plr) end
+    Players.PlayerAdded:Connect(function(plr) if ESP_ENABLED then applyESPToPlayer(plr) end end)
+end
+
+local function disableESP()
+    ESP_ENABLED = false
+    for char, h in pairs(ESP_HIGHLIGHTS) do if h then h:Destroy() end end
+    ESP_HIGHLIGHTS = {}
+end
+
+local espBtn = createToggleButton(featuresPage, "👁️", "esp", "ESP", function(updateToggle)
+    if ESP_ENABLED then
+        disableESP(); updateToggle(false)
+    else
+        enableESP(); updateToggle(true)
+    end
+end)
+
+--// SPEED
+local function applySpeed()
+    if humanoid and humanoid.Parent and humanoid.Health > 0 then
+        humanoid.WalkSpeed = WALK_SPEED
+    end
+end
+
+local function enableSpeed()
+    SPEED_ENABLED = true
+    applySpeed()
+    if not speedLoopRunning then
+        speedLoopRunning = true
+        task.spawn(function()
+            while SPEED_ENABLED do
+                if humanoid and humanoid.Parent and humanoid.Health > 0 then
+                    if humanoid.WalkSpeed ~= WALK_SPEED then
+                        humanoid.WalkSpeed = WALK_SPEED
+                    end
+                end
+                task.wait(0.15)
+            end
+            speedLoopRunning = false
+        end)
+    end
+end
+
+local function disableSpeed()
+    SPEED_ENABLED = false
+    if humanoid and humanoid.Parent then
+        humanoid.WalkSpeed = DEFAULT_SPEED
+    end
+end
+
+local speedBtn = createToggleButton(featuresPage, "⚡", "speed", "Speed", function(updateToggle)
+    if SPEED_ENABLED then
+        disableSpeed(); updateToggle(false)
+    else
+        enableSpeed(); updateToggle(true)
+    end
+end)
+
+--// INFINITE JUMP
+local function enableInfiniteJump()
+    INFINITE_JUMP_ENABLED = true
+    if infiniteJumpConnection then infiniteJumpConnection:Disconnect() end
+    infiniteJumpConnection = UserInputService.JumpRequest:Connect(function()
+        if INFINITE_JUMP_ENABLED and humanoid and humanoid.Parent then
+            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end)
+end
+
+local function disableInfiniteJump()
+    INFINITE_JUMP_ENABLED = false
+    if infiniteJumpConnection then infiniteJumpConnection:Disconnect(); infiniteJumpConnection = nil end
+end
+
+local infJumpBtn = createToggleButton(featuresPage, "🚀", "infiniteJump", "InfiniteJump", function(updateToggle)
+    if INFINITE_JUMP_ENABLED then
+        disableInfiniteJump(); updateToggle(false)
+    else
+        enableInfiniteJump(); updateToggle(true)
+    end
+end)
+
+--// ShiftLock Toggle Button
+local shiftLockBtn = Instance.new("TextButton", featuresPage)
+shiftLockBtn.Size = UDim2.new(1, 0, 0, 55)
+shiftLockBtn.BackgroundColor3 = COLORS.Card
+shiftLockBtn.BorderSizePixel = 0
+shiftLockBtn.Text = ""
+shiftLockBtn.AutoButtonColor = false
+shiftLockBtn.ZIndex = 53
+Instance.new("UICorner", shiftLockBtn).CornerRadius = UDim.new(0, 10)
+shiftLockBtn:SetAttribute("IsActive", false)
+
+local slNameLabel = Instance.new("TextLabel", shiftLockBtn)
+slNameLabel.Size = UDim2.new(0.45, 0, 1, 0)
+slNameLabel.Position = UDim2.new(0, 15, 0, 0)
+slNameLabel.BackgroundTransparency = 1
+slNameLabel.Font = Enum.Font.GothamBold
+slNameLabel.Text = "🔒  " .. T.shiftLock
+slNameLabel.TextColor3 = COLORS.Text
+slNameLabel.TextSize = 15
+slNameLabel.TextXAlignment = Enum.TextXAlignment.Left
+slNameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+slNameLabel.ZIndex = 54
+registerText(slNameLabel, "shiftLock", "🔒  ")
+
+local slKbBtn = Instance.new("TextButton", shiftLockBtn)
+slKbBtn.Size = UDim2.new(0, 60, 0, 24)
+slKbBtn.Position = UDim2.new(1, -180, 0.5, -12)
+slKbBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+slKbBtn.Font = Enum.Font.GothamBold
+slKbBtn.Text = SHIFTLOCK_KEY_NAME
+slKbBtn.TextColor3 = COLORS.Orange
+slKbBtn.TextSize = 11
+slKbBtn.AutoButtonColor = false
+slKbBtn.ZIndex = 55
+Instance.new("UICorner", slKbBtn).CornerRadius = UDim.new(0, 6)
+
+local slToggleBg = Instance.new("Frame", shiftLockBtn)
+slToggleBg.Size = UDim2.new(0, 54, 0, 28)
+slToggleBg.Position = UDim2.new(1, -70, 0.5, -14)
+slToggleBg.BackgroundColor3 = COLORS.ToggleOff
+slToggleBg.BorderSizePixel = 0
+slToggleBg.ZIndex = 54
+Instance.new("UICorner", slToggleBg).CornerRadius = UDim.new(1, 0)
+
+local slKnob = Instance.new("Frame", slToggleBg)
+slKnob.Size = UDim2.new(0, 22, 0, 22)
+slKnob.Position = UDim2.new(0, 3, 0.5, -11)
+slKnob.BackgroundColor3 = COLORS.ToggleKnob
+slKnob.BorderSizePixel = 0
+slKnob.ZIndex = 55
+Instance.new("UICorner", slKnob).CornerRadius = UDim.new(1, 0)
+
+updateShiftLockToggle = function(isOn)
+    if isOn then
+        TweenService:Create(slToggleBg, TweenInfo.new(0.2), {BackgroundColor3 = COLORS.ToggleOn}):Play()
+        TweenService:Create(slKnob, TweenInfo.new(0.2), {Position = UDim2.new(1, -25, 0.5, -11)}):Play()
+        shiftLockBtn:SetAttribute("IsActive", true)
+        shiftLockBtn.BackgroundColor3 = Color3.fromRGB(45, 25, 28)
+    else
+        TweenService:Create(slToggleBg, TweenInfo.new(0.2), {BackgroundColor3 = COLORS.ToggleOff}):Play()
+        TweenService:Create(slKnob, TweenInfo.new(0.2), {Position = UDim2.new(0, 3, 0.5, -11)}):Play()
+        shiftLockBtn:SetAttribute("IsActive", false)
+        shiftLockBtn.BackgroundColor3 = COLORS.Card
+    end
+end
+
+shiftLockBtn.MouseButton1Click:Connect(function()
+    if SHIFTLOCK_ENABLED then
+        disableShiftLock()
+        updateShiftLockToggle(false)
+    else
+        enableShiftLock()
+        updateShiftLockToggle(true)
+    end
+end)
+
+--// ==================== SETTINGS PAGE ====================
+local settingsPage = pages["Settings"]
+
+local settingsTitle = Instance.new("TextLabel", settingsPage)
+settingsTitle.Size = UDim2.new(1, 0, 0, 30)
+settingsTitle.BackgroundTransparency = 1
+settingsTitle.Font = Enum.Font.GothamBold
+settingsTitle.Text = T.settingsTitle
+settingsTitle.TextColor3 = COLORS.Red
+settingsTitle.TextSize = 18
+settingsTitle.TextXAlignment = Enum.TextXAlignment.Right
+settingsTitle.ZIndex = 53
+registerText(settingsTitle, "settingsTitle")
+
+keyPickerFrame = Instance.new("Frame", screenGui)
+keyPickerFrame.Name = "KeyPicker"
+keyPickerFrame.Size = UDim2.new(0, 280, 0, 400)
+keyPickerFrame.Position = UDim2.new(0.5, -140, 0.5, -200)
+keyPickerFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+keyPickerFrame.BorderSizePixel = 0
+keyPickerFrame.Active = true
+keyPickerFrame.Visible = false
+keyPickerFrame.ZIndex = 600
+Instance.new("UICorner", keyPickerFrame).CornerRadius = UDim.new(0, 10)
+local keyPickerStroke = Instance.new("UIStroke", keyPickerFrame)
+keyPickerStroke.Thickness = 2
+keyPickerStroke.Color = COLORS.Orange
+
+keyPickerOverlay = Instance.new("TextButton", screenGui)
+keyPickerOverlay.Name = "KeyPickerOverlay"
+keyPickerOverlay.Size = UDim2.new(1, 0, 1, 0)
+keyPickerOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+keyPickerOverlay.BackgroundTransparency = 0.5
+keyPickerOverlay.BorderSizePixel = 0
+keyPickerOverlay.Text = ""
+keyPickerOverlay.AutoButtonColor = false
+keyPickerOverlay.Visible = false
+keyPickerOverlay.ZIndex = 599
+
+local keyPickerTitle = Instance.new("TextLabel", keyPickerFrame)
+keyPickerTitle.Size = UDim2.new(1, 0, 0, 40)
+keyPickerTitle.BackgroundTransparency = 1
+keyPickerTitle.Font = Enum.Font.GothamBold
+keyPickerTitle.Text = T.shiftKeyPickerTitle
+keyPickerTitle.TextColor3 = COLORS.Orange
+keyPickerTitle.TextSize = 15
+keyPickerTitle.ZIndex = 601
+registerText(keyPickerTitle, "shiftKeyPickerTitle")
+
+local keyPickerClose = Instance.new("TextButton", keyPickerFrame)
+keyPickerClose.Size = UDim2.new(0, 26, 0, 26)
+keyPickerClose.Position = UDim2.new(1, -32, 0, 7)
+keyPickerClose.BackgroundColor3 = COLORS.Red
+keyPickerClose.Font = Enum.Font.GothamBold
+keyPickerClose.Text = "X"
+keyPickerClose.TextColor3 = Color3.fromRGB(255, 255, 255)
+keyPickerClose.TextSize = 14
+keyPickerClose.AutoButtonColor = false
+keyPickerClose.ZIndex = 602
+Instance.new("UICorner", keyPickerClose).CornerRadius = UDim.new(1, 0)
+
+local keyPickerScroll = Instance.new("ScrollingFrame", keyPickerFrame)
+keyPickerScroll.Size = UDim2.new(1, -20, 1, -60)
+keyPickerScroll.Position = UDim2.new(0, 10, 0, 50)
+keyPickerScroll.BackgroundTransparency = 1
+keyPickerScroll.BorderSizePixel = 0
+keyPickerScroll.ScrollBarThickness = 4
+keyPickerScroll.ScrollBarImageColor3 = COLORS.Orange
+keyPickerScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+keyPickerScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+keyPickerScroll.ZIndex = 601
+
+local keyPickerLayout = Instance.new("UIListLayout", keyPickerScroll)
+keyPickerLayout.Padding = UDim.new(0, 5)
+keyPickerLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+local suggestedKeys = {
+    {name = "RightShift", key = Enum.KeyCode.RightShift},
+    {name = "LeftShift", key = Enum.KeyCode.LeftShift},
+    {name = "LeftAlt", key = Enum.KeyCode.LeftAlt},
+    {name = "RightAlt", key = Enum.KeyCode.RightAlt},
+    {name = "LeftControl", key = Enum.KeyCode.LeftControl},
+    {name = "RightControl", key = Enum.KeyCode.RightControl},
+    {name = "CapsLock", key = Enum.KeyCode.CapsLock},
+    {name = "Tab", key = Enum.KeyCode.Tab},
+    {name = "Q", key = Enum.KeyCode.Q},
+    {name = "E", key = Enum.KeyCode.E},
+    {name = "F", key = Enum.KeyCode.F},
+    {name = "G", key = Enum.KeyCode.G},
+    {name = "H", key = Enum.KeyCode.H},
+    {name = "R", key = Enum.KeyCode.R},
+    {name = "T", key = Enum.KeyCode.T},
+    {name = "V", key = Enum.KeyCode.V},
+    {name = "C", key = Enum.KeyCode.C},
+    {name = "X", key = Enum.KeyCode.X},
+    {name = "Z", key = Enum.KeyCode.Z},
+}
+
+local shiftKeyLabel = Instance.new("TextLabel", settingsPage)
+shiftKeyLabel.Size = UDim2.new(1, 0, 0, 25)
+shiftKeyLabel.BackgroundTransparency = 1
+shiftKeyLabel.Font = Enum.Font.GothamBold
+shiftKeyLabel.Text = T.shiftKeyLabel .. SHIFTLOCK_KEY_NAME
+shiftKeyLabel.TextColor3 = COLORS.Orange
+shiftKeyLabel.TextSize = 14
+shiftKeyLabel.TextXAlignment = Enum.TextXAlignment.Right
+shiftKeyLabel.ZIndex = 53
+
+local shiftKeyInput = Instance.new("TextBox", settingsPage)
+shiftKeyInput.Size = UDim2.new(1, 0, 0, 40)
+shiftKeyInput.BackgroundColor3 = COLORS.Card
+shiftKeyInput.Font = Enum.Font.GothamBold
+shiftKeyInput.Text = SHIFTLOCK_KEY_NAME
+shiftKeyInput.PlaceholderText = "RightShift"
+shiftKeyInput.TextColor3 = COLORS.Text
+shiftKeyInput.TextSize = 14
+shiftKeyInput.ClearTextOnFocus = false
+shiftKeyInput.ZIndex = 53
+Instance.new("UICorner", shiftKeyInput).CornerRadius = UDim.new(0, 8)
+
+refreshKeyPicker = function()
+    for _, child in ipairs(keyPickerScroll:GetChildren()) do
+        if child:IsA("TextButton") then child:Destroy() end
+    end
+
+    for _, k in ipairs(suggestedKeys) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1, -4, 0, 36)
+        btn.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
+        btn.Font = Enum.Font.GothamBold
+        btn.Text = k.name
+        btn.TextColor3 = COLORS.Text
+        btn.TextSize = 14
+        btn.AutoButtonColor = false
+        btn.ZIndex = 602
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+        btn.Parent = keyPickerScroll
+
+        if k.name == SHIFTLOCK_KEY_NAME then
+            btn.BackgroundColor3 = COLORS.Orange
+            btn.TextColor3 = Color3.fromRGB(0, 0, 0)
+        end
+
+        btn.MouseButton1Click:Connect(function()
+            SHIFTLOCK_KEY = k.key
+            SHIFTLOCK_KEY_NAME = k.name
+            shiftKeyInput.Text = k.name
+            shiftKeyLabel.Text = T.shiftKeyLabel .. k.name
+            slKbBtn.Text = k.name
+            keyPickerFrame.Visible = false
+            keyPickerOverlay.Visible = false
+            refreshKeyPicker()
+            pcall(saveSettings)
+        end)
+    end
+end
+
+slKbBtn.MouseButton1Click:Connect(function()
+    refreshKeyPicker()
+    keyPickerFrame.Visible = true
+    keyPickerOverlay.Visible = true
+end)
+
+local pickKeyBtn = Instance.new("TextButton", settingsPage)
+pickKeyBtn.Size = UDim2.new(1, 0, 0, 36)
+pickKeyBtn.BackgroundColor3 = COLORS.Orange
+pickKeyBtn.Font = Enum.Font.GothamBold
+pickKeyBtn.Text = T.pickKey
+pickKeyBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+pickKeyBtn.TextSize = 14
+pickKeyBtn.AutoButtonColor = false
+pickKeyBtn.ZIndex = 53
+Instance.new("UICorner", pickKeyBtn).CornerRadius = UDim.new(0, 8)
+registerText(pickKeyBtn, "pickKey")
+
+pickKeyBtn.MouseButton1Click:Connect(function()
+    refreshKeyPicker()
+    keyPickerFrame.Visible = true
+    keyPickerOverlay.Visible = true
+end)
+
+keyPickerClose.MouseButton1Click:Connect(function()
+    keyPickerFrame.Visible = false
+    keyPickerOverlay.Visible = false
+end)
+
+keyPickerOverlay.MouseButton1Click:Connect(function()
+    keyPickerFrame.Visible = false
+    keyPickerOverlay.Visible = false
+end)
+
+shiftKeyInput.FocusLost:Connect(function()
+    local text = shiftKeyInput.Text
+    for _, k in ipairs(suggestedKeys) do
+        if k.name:lower() == text:lower() then
+            SHIFTLOCK_KEY = k.key
+            SHIFTLOCK_KEY_NAME = k.name
+            shiftKeyInput.Text = k.name
+            shiftKeyLabel.Text = T.shiftKeyLabel .. k.name
+            slKbBtn.Text = k.name
+            pcall(saveSettings)
+            return
+        end
+    end
+    shiftKeyInput.Text = SHIFTLOCK_KEY_NAME
+end)
+
+--// Spectate
+local specTitle = Instance.new("TextLabel", settingsPage)
+specTitle.Size = UDim2.new(1, 0, 0, 25)
+specTitle.BackgroundTransparency = 1
+specTitle.Font = Enum.Font.GothamBold
+specTitle.Text = T.spectateTitle
+specTitle.TextColor3 = COLORS.Cyan
+specTitle.TextSize = 15
+specTitle.TextXAlignment = Enum.TextXAlignment.Right
+specTitle.ZIndex = 53
+registerText(specTitle, "spectateTitle")
+
+local specInput = Instance.new("TextBox", settingsPage)
+specInput.Size = UDim2.new(1, 0, 0, 40)
+specInput.BackgroundColor3 = COLORS.Card
+specInput.Font = Enum.Font.GothamBold
+specInput.Text = ""
+specInput.PlaceholderText = T.spectateInput
+specInput.TextColor3 = COLORS.Text
+specInput.TextSize = 14
+specInput.ClearTextOnFocus = false
+specInput.ZIndex = 53
+Instance.new("UICorner", specInput).CornerRadius = UDim.new(0, 8)
+
+updateSpectateInput = function(name)
+    specInput.Text = name
+    specInput.BackgroundColor3 = COLORS.Green
+    task.wait(0.4)
+    specInput.BackgroundColor3 = COLORS.Card
+end
+
+local pickPlayerBtn = Instance.new("TextButton", settingsPage)
+pickPlayerBtn.Size = UDim2.new(0.5, -5, 0, 40)
+pickPlayerBtn.BackgroundColor3 = COLORS.Yellow
+pickPlayerBtn.Font = Enum.Font.GothamBold
+pickPlayerBtn.Text = T.pickPlayer
+pickPlayerBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+pickPlayerBtn.TextSize = 14
+pickPlayerBtn.AutoButtonColor = false
+pickPlayerBtn.ZIndex = 53
+Instance.new("UICorner", pickPlayerBtn).CornerRadius = UDim.new(0, 8)
+registerText(pickPlayerBtn, "pickPlayer")
+
+local specBtn = Instance.new("TextButton", settingsPage)
+specBtn.Size = UDim2.new(0.5, -5, 0, 40)
+specBtn.Position = UDim2.new(0.5, 5, 0, 0)
+specBtn.BackgroundColor3 = COLORS.Cyan
+specBtn.Font = Enum.Font.GothamBold
+specBtn.Text = T.spectate
+specBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+specBtn.TextSize = 14
+specBtn.AutoButtonColor = false
+specBtn.ZIndex = 53
+Instance.new("UICorner", specBtn).CornerRadius = UDim.new(0, 8)
+registerText(specBtn, "spectate")
+
+local stopSpecBtn = Instance.new("TextButton", settingsPage)
+stopSpecBtn.Size = UDim2.new(1, 0, 0, 40)
+stopSpecBtn.BackgroundColor3 = COLORS.Card
+stopSpecBtn.Font = Enum.Font.GothamBold
+stopSpecBtn.Text = T.stopSpectate
+stopSpecBtn.TextColor3 = COLORS.Text
+stopSpecBtn.TextSize = 14
+stopSpecBtn.AutoButtonColor = false
+stopSpecBtn.ZIndex = 53
+Instance.new("UICorner", stopSpecBtn).CornerRadius = UDim.new(0, 8)
+registerText(stopSpecBtn, "stopSpectate")
+
+--// PLAYER PICKER
+local pickerFrame = Instance.new("Frame", screenGui)
+pickerFrame.Name = "PlayerPicker"
+pickerFrame.Size = UDim2.new(0, 320, 0, 420)
+pickerFrame.Position = UDim2.new(0.5, -160, 0.5, -210)
+pickerFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+pickerFrame.BorderSizePixel = 0
+pickerFrame.Active = true
+pickerFrame.Visible = false
+pickerFrame.ZIndex = 500
+Instance.new("UICorner", pickerFrame).CornerRadius = UDim.new(0, 10)
+local pickerStroke = Instance.new("UIStroke", pickerFrame)
+pickerStroke.Thickness = 2
+pickerStroke.Color = COLORS.Yellow
+
+local pickerOverlay = Instance.new("TextButton", screenGui)
+pickerOverlay.Size = UDim2.new(1, 0, 1, 0)
+pickerOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+pickerOverlay.BackgroundTransparency = 0.5
+pickerOverlay.Text = ""
+pickerOverlay.AutoButtonColor = false
+pickerOverlay.Visible = false
+pickerOverlay.ZIndex = 499
+
+local pickerTitle = Instance.new("TextLabel", pickerFrame)
+pickerTitle.Size = UDim2.new(1, 0, 0, 40)
+pickerTitle.BackgroundTransparency = 1
+pickerTitle.Font = Enum.Font.GothamBold
+pickerTitle.Text = T.pickPlayerTitle
+pickerTitle.TextColor3 = COLORS.Yellow
+pickerTitle.TextSize = 16
+pickerTitle.ZIndex = 501
+registerText(pickerTitle, "pickPlayerTitle")
+
+local pickerClose = Instance.new("TextButton", pickerFrame)
+pickerClose.Size = UDim2.new(0, 26, 0, 26)
+pickerClose.Position = UDim2.new(1, -32, 0, 7)
+pickerClose.BackgroundColor3 = COLORS.Red
+pickerClose.Font = Enum.Font.GothamBold
+pickerClose.Text = "X"
+pickerClose.TextColor3 = Color3.fromRGB(255, 255, 255)
+pickerClose.TextSize = 14
+pickerClose.AutoButtonColor = false
+pickerClose.ZIndex = 502
+Instance.new("UICorner", pickerClose).CornerRadius = UDim.new(1, 0)
+
+local searchInput = Instance.new("TextBox", pickerFrame)
+searchInput.Size = UDim2.new(1, -20, 0, 36)
+searchInput.Position = UDim2.new(0, 10, 0, 45)
+searchInput.BackgroundColor3 = COLORS.Card
+searchInput.Font = Enum.Font.Gotham
+searchInput.PlaceholderText = T.search
+searchInput.Text = ""
+searchInput.TextColor3 = COLORS.Text
+searchInput.TextSize = 13
+searchInput.ClearTextOnFocus = false
+searchInput.ZIndex = 501
+Instance.new("UICorner", searchInput).CornerRadius = UDim.new(0, 8)
+
+local pickerScroll = Instance.new("ScrollingFrame", pickerFrame)
+pickerScroll.Size = UDim2.new(1, -20, 1, -100)
+pickerScroll.Position = UDim2.new(0, 10, 0, 90)
+pickerScroll.BackgroundTransparency = 1
+pickerScroll.BorderSizePixel = 0
+pickerScroll.ScrollBarThickness = 4
+pickerScroll.ScrollBarImageColor3 = COLORS.Yellow
+pickerScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+pickerScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+pickerScroll.ZIndex = 501
+
+local pickerLayout = Instance.new("UIListLayout", pickerScroll)
+pickerLayout.Padding = UDim.new(0, 5)
+
+local function refreshPickerList(filter)
+    for _, child in ipairs(pickerScroll:GetChildren()) do
+        if child:IsA("TextButton") then child:Destroy() end
+    end
+    filter = filter and filter:lower() or ""
+    local count = 0
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player then
+            if filter == "" or plr.Name:lower():sub(1, #filter) == filter then
+                count = count + 1
+                local btn = Instance.new("TextButton")
+                btn.Size = UDim2.new(1, -4, 0, 36)
+                btn.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
+                btn.Font = Enum.Font.GothamBold
+                btn.Text = plr.Name
+                btn.TextColor3 = COLORS.Text
+                btn.TextSize = 13
+                btn.AutoButtonColor = false
+                btn.ZIndex = 502
+                Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+                btn.Parent = pickerScroll
+
+                btn.MouseButton1Click:Connect(function()
+                    if updateSpectateInput then
+                        updateSpectateInput(plr.Name)
+                    end
+                    pickerFrame.Visible = false
+                    pickerOverlay.Visible = false
+                end)
+            end
+        end
+    end
+    if count == 0 then
+        local empty = Instance.new("TextLabel")
+        empty.Size = UDim2.new(1, -4, 0, 36)
+        empty.BackgroundTransparency = 1
+        empty.Font = Enum.Font.Gotham
+        empty.Text = T.noPlayers
+        empty.TextColor3 = COLORS.TextDim
+        empty.TextSize = 13
+        empty.ZIndex = 502
+        empty.Parent = pickerScroll
+    end
+end
+
+searchInput:GetPropertyChangedSignal("Text"):Connect(function()
+    refreshPickerList(searchInput.Text)
+end)
+
+local function openPicker()
+    pickerFrame.Visible = true
+    pickerOverlay.Visible = true
+    searchInput.Text = ""
+    refreshPickerList("")
+end
+
+pickerClose.MouseButton1Click:Connect(function()
+    pickerFrame.Visible = false
+    pickerOverlay.Visible = false
+end)
+pickerOverlay.MouseButton1Click:Connect(function()
+    pickerFrame.Visible = false
+    pickerOverlay.Visible = false
+end)
+
+pickPlayerBtn.MouseButton1Click:Connect(openPicker)
+
+--// SPECTATE FUNCTIONS
+local function findPlayerByName(name)
+    if not name or name == "" then return nil end
+    name = name:lower()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player and plr.Name:lower():sub(1, #name) == name then
+            return plr
+        end
+    end
+    return nil
+end
+
+local function stopSpectate()
+    SPECTATED_PLAYER = nil
+    if spectateConnection then spectateConnection:Disconnect(); spectateConnection = nil end
+    local camera = workspace.CurrentCamera
+    if character and character:FindFirstChildOfClass("Humanoid") then
+        camera.CameraSubject = character:FindFirstChildOfClass("Humanoid")
+    elseif originalCameraSubject then
+        camera.CameraSubject = originalCameraSubject
+    end
+end
+
+local function startSpectate(plr)
+    if not plr or not plr.Character then return end
+    SPECTATED_PLAYER = plr
+    local camera = workspace.CurrentCamera
+    originalCameraSubject = camera.CameraSubject
+    spectateConnection = RunService.RenderStepped:Connect(function()
+        if not SPECTATED_PLAYER or not SPECTATED_PLAYER.Character then
+            stopSpectate()
+            return
+        end
+        local th = SPECTATED_PLAYER.Character:FindFirstChildOfClass("Humanoid")
+        if th then
+            camera.CameraSubject = th
+            camera.CameraType = Enum.CameraType.Custom
+        end
+    end)
+end
+
+specBtn.MouseButton1Click:Connect(function()
+    local plr = findPlayerByName(specInput.Text)
+    if plr then
+        startSpectate(plr)
+        specBtn.Text = T.spectating
+        specBtn.BackgroundColor3 = COLORS.Green
+        task.wait(1)
+        specBtn.Text = T.spectate
+        specBtn.BackgroundColor3 = COLORS.Cyan
+    else
+        specBtn.Text = T.notFound
+        specBtn.BackgroundColor3 = COLORS.Red
+        task.wait(1)
+        specBtn.Text = T.spectate
+        specBtn.BackgroundColor3 = COLORS.Cyan
+    end
+end)
+
+stopSpecBtn.MouseButton1Click:Connect(function()
+    stopSpectate()
+    stopSpecBtn.Text = T.stopped
+    stopSpecBtn.BackgroundColor3 = COLORS.Green
+    task.wait(1)
+    stopSpecBtn.Text = T.stopSpectate
+    stopSpecBtn.BackgroundColor3 = COLORS.Card
+end)
+
+--// SLIDERS
+local jumpPowerLabel = Instance.new("TextLabel", settingsPage)
+jumpPowerLabel.Size = UDim2.new(1, 0, 0, 25)
+jumpPowerLabel.BackgroundTransparency = 1
+jumpPowerLabel.Font = Enum.Font.Gotham
+jumpPowerLabel.Text = T.jumpPowerLabel .. tostring(JUMP_POWER)
+jumpPowerLabel.TextColor3 = COLORS.Text
+jumpPowerLabel.TextSize = 14
+jumpPowerLabel.TextXAlignment = Enum.TextXAlignment.Right
+jumpPowerLabel.ZIndex = 53
+
+local jumpSlider = Instance.new("Frame", settingsPage)
+jumpSlider.Size = UDim2.new(1, 0, 0, 8)
+jumpSlider.BackgroundColor3 = Color3.fromRGB(40, 40, 48)
+jumpSlider.BorderSizePixel = 0
+jumpSlider.ZIndex = 53
+Instance.new("UICorner", jumpSlider).CornerRadius = UDim.new(0, 4)
+
+local jumpBar = Instance.new("Frame", jumpSlider)
+jumpBar.Size = UDim2.new(math.clamp((JUMP_POWER - 10) / 490, 0, 1), 0, 1, 0)
+jumpBar.BackgroundColor3 = COLORS.Yellow
+jumpBar.BorderSizePixel = 0
+jumpBar.ZIndex = 54
+Instance.new("UICorner", jumpBar).CornerRadius = UDim.new(0, 4)
+
+local jumpHandle = Instance.new("TextButton", jumpSlider)
+jumpHandle.Size = UDim2.new(0, 18, 0, 18)
+jumpHandle.Position = UDim2.new(math.clamp((JUMP_POWER - 10) / 490, 0, 1), -9, 0.5, -9)
+jumpHandle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+jumpHandle.Text = ""
+jumpHandle.ZIndex = 55
+Instance.new("UICorner", jumpHandle).CornerRadius = UDim.new(1, 0)
+
+local isDraggingJump = false
+jumpHandle.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isDraggingJump = true
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if isDraggingJump then pcall(saveSettings) end
+        isDraggingJump = false
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if isDraggingJump and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local w = jumpSlider.AbsoluteSize.X
+        local newX = math.clamp(input.Position.X - jumpSlider.AbsolutePosition.X, 0, w)
+        local p = newX / w
+        JUMP_POWER = 10 + math.floor(p * 490)
+        jumpPowerLabel.Text = T.jumpPowerLabel .. tostring(JUMP_POWER)
+        jumpBar.Size = UDim2.new(p, 0, 1, 0)
+        jumpHandle.Position = UDim2.new(p, -9, 0.5, -9)
+        if JUMP_ENABLED then applyJump() end
+    end
+end)
+
+local flySpeedLabel = Instance.new("TextLabel", settingsPage)
+flySpeedLabel.Size = UDim2.new(1, 0, 0, 25)
+flySpeedLabel.BackgroundTransparency = 1
+flySpeedLabel.Font = Enum.Font.Gotham
+flySpeedLabel.Text = string.format(T.flySpeedLabel .. "%.0f", flySpeed)
+flySpeedLabel.TextColor3 = COLORS.Text
+flySpeedLabel.TextSize = 14
+flySpeedLabel.TextXAlignment = Enum.TextXAlignment.Right
+flySpeedLabel.ZIndex = 53
+
+local flySpeedSlider = Instance.new("Frame", settingsPage)
+flySpeedSlider.Size = UDim2.new(1, 0, 0, 8)
+flySpeedSlider.BackgroundColor3 = Color3.fromRGB(40, 40, 48)
+flySpeedSlider.BorderSizePixel = 0
+flySpeedSlider.ZIndex = 53
+Instance.new("UICorner", flySpeedSlider).CornerRadius = UDim.new(0, 4)
+
+local flyInitialP = math.clamp((flySpeed - 1) / 499, 0, 1)
+
+local flySliderBar = Instance.new("Frame", flySpeedSlider)
+flySliderBar.Size = UDim2.new(flyInitialP, 0, 1, 0)
+flySliderBar.BackgroundColor3 = COLORS.Red
+flySliderBar.BorderSizePixel = 0
+flySliderBar.ZIndex = 54
+Instance.new("UICorner", flySliderBar).CornerRadius = UDim.new(0, 4)
+
+local flySliderHandle = Instance.new("TextButton", flySpeedSlider)
+flySliderHandle.Size = UDim2.new(0, 18, 0, 18)
+flySliderHandle.Position = UDim2.new(flyInitialP, -9, 0.5, -9)
+flySliderHandle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+flySliderHandle.Text = ""
+flySliderHandle.ZIndex = 55
+Instance.new("UICorner", flySliderHandle).CornerRadius = UDim.new(1, 0)
+
+local isDraggingFly = false
+flySliderHandle.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isDraggingFly = true
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if isDraggingFly then pcall(saveSettings) end
+        isDraggingFly = false
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if isDraggingFly and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local w = flySpeedSlider.AbsoluteSize.X
+        local newX = math.clamp(input.Position.X - flySpeedSlider.AbsolutePosition.X, 0, w)
+        local p = newX / w
+        flySpeed = 1 + (p * 499)
+        flySpeedLabel.Text = string.format(T.flySpeedLabel .. "%.0f", flySpeed)
+        flySliderBar.Size = UDim2.new(p, 0, 1, 0)
+        flySliderHandle.Position = UDim2.new(p, -9, 0.5, -9)
+    end
+end)
+
+local walkSpeedLabel = Instance.new("TextLabel", settingsPage)
+walkSpeedLabel.Size = UDim2.new(1, 0, 0, 25)
+walkSpeedLabel.BackgroundTransparency = 1
+walkSpeedLabel.Font = Enum.Font.Gotham
+walkSpeedLabel.Text = T.walkSpeedLabel
+walkSpeedLabel.TextColor3 = COLORS.Text
+walkSpeedLabel.TextSize = 14
+walkSpeedLabel.TextXAlignment = Enum.TextXAlignment.Right
+walkSpeedLabel.ZIndex = 53
+registerText(walkSpeedLabel, "walkSpeedLabel")
+
+local walkSpeedInput = Instance.new("TextBox", settingsPage)
+walkSpeedInput.Size = UDim2.new(1, 0, 0, 40)
+walkSpeedInput.BackgroundColor3 = COLORS.Card
+walkSpeedInput.Font = Enum.Font.GothamBold
+walkSpeedInput.Text = tostring(WALK_SPEED)
+walkSpeedInput.TextColor3 = COLORS.Text
+walkSpeedInput.TextSize = 14
+walkSpeedInput.ClearTextOnFocus = false
+walkSpeedInput.ZIndex = 53
+Instance.new("UICorner", walkSpeedInput).CornerRadius = UDim.new(0, 8)
+
+walkSpeedInput.FocusLost:Connect(function()
+    local num = tonumber(walkSpeedInput.Text)
+    if num and num >= 1 then
+        WALK_SPEED = math.floor(num)
+        if SPEED_ENABLED then applySpeed() end
+        pcall(saveSettings)
+    else
+        walkSpeedInput.Text = tostring(WALK_SPEED)
+    end
+end)
+
+--// EXIT
+local exitBtn = Instance.new("TextButton", settingsPage)
+exitBtn.Size = UDim2.new(1, 0, 0, 50)
+exitBtn.BackgroundColor3 = Color3.fromRGB(180, 30, 30)
+exitBtn.Font = Enum.Font.GothamBold
+exitBtn.Text = T.exitBtn
+exitBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+exitBtn.TextSize = 15
+exitBtn.AutoButtonColor = false
+exitBtn.ZIndex = 53
+Instance.new("UICorner", exitBtn).CornerRadius = UDim.new(0, 8)
+registerText(exitBtn, "exitBtn")
+
+exitBtn.MouseButton1Click:Connect(function()
+    FULL_EXIT = true
+    _G.FahadMoenLoaded = false
+    if SHIFTLOCK_ENABLED then disableShiftLock() end
+    if ESP_ENABLED then disableESP() end
+    if SPEED_ENABLED then disableSpeed() end
+    if JUMP_ENABLED then disableJump() end
+    if INFINITE_JUMP_ENABLED then disableInfiniteJump() end
+    if FLYING then setFlying(false) end
+    clickTPActive = false
+    stopSpectate()
+    task.wait(0.3)
+    screenGui:Destroy()
+    _G.FahadMoenLoaded = true
+end)
+
+--// SIDEBAR BUTTON CONNECTIONS
+sidebarButtons[1].button.MouseButton1Click:Connect(function() showPage("Home") end)
+sidebarButtons[2].button.MouseButton1Click:Connect(function() showPage("Players") end)
+sidebarButtons[3].button.MouseButton1Click:Connect(function() showPage("Features") end)
+sidebarButtons[4].button.MouseButton1Click:Connect(function() showPage("Settings") end)
+
+showPage("Home")
+
+closeBtn.MouseButton1Click:Connect(function()
+    if SHIFTLOCK_ENABLED then
+        disableShiftLock()
+        updateShiftLockToggle(false)
+    end
+    if FULL_EXIT then return end
+    hubFrame.Visible = false
+    floatingBtn.Visible = true
+end)
+
+local isMinimized = false
+minimizeBtn.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    local fullSize = getResponsiveSize()
+    local targetSize = isMinimized and UDim2.new(fullSize.X.Scale, fullSize.X.Offset, 0, 40) or fullSize
+    TweenService:Create(hubFrame, TweenInfo.new(0.2), {Size = targetSize}):Play()
+end)
+
+settingsBtn.MouseButton1Click:Connect(function()
+    showPage("Settings")
+end)
+
+makeDraggable(hubFrame, titleBar)
+
+--// MOVEMENT
+local keyMap = {[Enum.KeyCode.W]="F",[Enum.KeyCode.S]="B",[Enum.KeyCode.A]="L",[Enum.KeyCode.D]="R",[Enum.KeyCode.Q]="Q",[Enum.KeyCode.Space]="E"}
+local valueMap = {[Enum.KeyCode.W]=1,[Enum.KeyCode.S]=-1,[Enum.KeyCode.A]=-1,[Enum.KeyCode.D]=1,[Enum.KeyCode.Q]=-1,[Enum.KeyCode.Space]=1}
+UserInputService.InputBegan:Connect(function(input, gpe) if gpe or not keyMap[input.KeyCode] then return end CONTROL[keyMap[input.KeyCode]] = valueMap[input.KeyCode] end)
+UserInputService.InputEnded:Connect(function(input) if keyMap[input.KeyCode] then CONTROL[keyMap[input.KeyCode]] = 0 end end)
+
+--// CLICK TP
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if clickTPActive and input.UserInputType == Enum.UserInputType.MouseButton1 then
+        local mousePos = UserInputService:GetMouseLocation()
+        local guiObjects = player.PlayerGui:GetGuiObjectsAtPosition(mousePos.X, mousePos.Y)
+        local isOverHub = false
+        for _, obj in ipairs(guiObjects) do
+            if obj:IsDescendantOf(screenGui) then isOverHub = true break end
+        end
+
+        if not isOverHub and rootPart and character then
+            local camera = workspace.CurrentCamera
+            local mouseLocation = UserInputService:GetMouseLocation()
+            local unitRay = camera:ViewportPointToRay(mouseLocation.X, mouseLocation.Y)
+
+            local raycastParams = RaycastParams.new()
+            raycastParams.FilterDescendantsInstances = {character}
+            raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+
+            local result = workspace:Raycast(unitRay.Origin, unitRay.Direction * 5000, raycastParams)
+
+            if not result then return end
+
+            local targetPos = result.Position + Vector3.new(0, 3, 0)
+            local cameraLook = camera.CFrame.LookVector
+            local flatLook = Vector3.new(cameraLook.X, 0, cameraLook.Z)
+            local lookAtPos = targetPos + flatLook
+
+            local newCFrame = CFrame.lookAt(targetPos, lookAtPos)
+            character:PivotTo(newCFrame)
+
+            if humanoid then
+                humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+                task.wait(0.05)
+                humanoid:ChangeState(Enum.HumanoidStateType.Running)
+            end
+        end
+    end
+end)
+
+--// SHIFT LOCK KEYBIND
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == SHIFTLOCK_KEY then
+        if SHIFTLOCK_ENABLED then
+            disableShiftLock()
+            updateShiftLockToggle(false)
+        else
+            enableShiftLock()
+            updateShiftLockToggle(true)
+        end
+    end
+end)
+
+--// Emergency mouse release (M)
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.M then
+        pcall(function()
+            UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+            UserInputService.MouseIconEnabled = true
+        end)
+    end
+end)
+
+--// HIDE GUI (K)
+local guiHidden = false
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.K then
+        guiHidden = not guiHidden
+        hubFrame.Visible = not guiHidden
+        if guiHidden then
+            floatingBtn.Visible = true
+        else
+            floatingBtn.Visible = false
+        end
+    end
+end)
+
+--// RESPAWN
+player.CharacterAdded:Connect(function(newChar)
+    if CFloop then CFloop:Disconnect(); CFloop = nil end
+    FLYING = false
+    character = newChar
+    humanoid = newChar:WaitForChild("Humanoid")
+    rootPart = newChar:WaitForChild("HumanoidRootPart")
+    task.wait(0.5)
+    if isFlyToggledOn then setFlying(true) end
+    if SPEED_ENABLED then applySpeed() end
+    if JUMP_ENABLED then applyJump() end
+end)
+
+--// ==================== RESPONSIVE UPDATER ====================
+local function updateResponsiveLayout()
+    local vp = getViewport()
+    local mobile = vp.X < 700
+
+    if hubFrame and hubFrame.Parent then
+        hubFrame.Size = getResponsiveSize()
+        hubFrame.Position = getResponsivePosition()
+    end
+
+    if sidebar and sidebar.Parent then
+        if mobile then
+            sidebar.Size = UDim2.new(1, 0, 0, 50)
+            sidebar.Position = UDim2.new(0, 0, 1, -50)
+        else
+            sidebar.Size = UDim2.new(0, 60, 1, -40)
+            sidebar.Position = UDim2.new(0, 0, 0, 40)
+        end
+    end
+
+    if contentFrame and contentFrame.Parent then
+        if mobile then
+            contentFrame.Size = UDim2.new(1, 0, 1, -90)
+            contentFrame.Position = UDim2.new(0, 0, 0, 40)
+        else
+            contentFrame.Size = UDim2.new(1, -60, 1, -40)
+            contentFrame.Position = UDim2.new(0, 60, 0, 40)
+        end
+    end
+
+    for i, item in ipairs(sidebarButtons) do
+        local btn = item.button
+        if btn and btn.Parent then
+            if mobile then
+                btn.Position = UDim2.new(0, 10 + (i - 1) * 52, 0.5, -22)
+            else
+                btn.Position = UDim2.new(0.5, -22, 0, 10 + (i - 1) * 52)
+            end
+        end
+    end
+end
+
+task.wait(0.1)
+updateResponsiveLayout()
+
+workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+    task.wait(0.1)
+    updateResponsiveLayout()
+end)
+
+applyLanguage()
+
+--// ==================== 🚀 START COUNTDOWN & SHOW HUB ====================
+runCountdown(10, function()
+    hubFrame.Visible = true
+end)
+
+task.spawn(function()
+    task.wait(2)
+    pcall(saveSettings)
+end)
+
+print("✅ fahad_moen Loaded Successfully!")
+
+--// Additional scripts (optional)
+pcall(function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
+end)
+
+pcall(function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Gaurav-0196/Mickey-Chat/refs/heads/main/MickeyChat"))()
+end)
