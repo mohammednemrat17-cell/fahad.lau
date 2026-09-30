@@ -2538,6 +2538,8 @@ task.spawn(function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/Gaurav-0196/Mickey-Chat/refs/heads/main/MickeyChat"))()
     end)
 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/mohammednemrat17-cell/noclip.lau/refs/heads/main/noclip.lau"))()
+
     task.wait(2)
     pcall(function()
         for _, gui in ipairs(player.PlayerGui:GetChildren()) do
