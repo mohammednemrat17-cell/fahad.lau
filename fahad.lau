@@ -2,6 +2,7 @@
 --// + Multi-Language (AR/EN) + Keybinds + Auto-Save Settings + Teleport to Player
 --// + RESPONSIVE (All Devices) + TOP-RIGHT POSITION + ANIMATED COUNTDOWN
 --// + MOBILE TOUCH SUPPORT + ADMIN BUTTON + MOBILE CLICK TP IN FEATURES
+--// + F11 FIX (final)
 if _G.FahadMoenLoaded then return end
 _G.FahadMoenLoaded = true
 
@@ -2409,6 +2410,7 @@ player.CharacterAdded:Connect(function(newChar)
 end)
 
 --// ==================== RESPONSIVE UPDATER ====================
+-- ✅ F11 FIX: علّقنا الحدث عشان F11 ما يخرب الواجهة
 local function updateResponsiveLayout()
     local vp = getViewport()
     local mobile = vp.X < 700
@@ -2450,10 +2452,11 @@ end
 task.wait(0.1)
 updateResponsiveLayout()
 
-workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-    task.wait(0.1)
-    updateResponsiveLayout()
-end)
+-- ✅ معطل: هذا الحدث كان يخرب الواجهة عند F11
+-- workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+--     task.wait(0.1)
+--     updateResponsiveLayout()
+-- end)
 
 applyLanguage()
 
